@@ -9,6 +9,11 @@ class Suit(enum.Enum):
     Hearts = enum.auto()
     Spades = enum.auto()
 
+class Action(enum.Enum):
+    Bet = enum.auto()
+    Call = enum.auto()
+    Check = enum.auto()
+    Fold = enum.auto()
 
 suit_names = {
     Suit.Clubs: 'clubs',
@@ -88,9 +93,7 @@ class Player:
         self.name = name
         self.chips = chips
         self.hand = None
-
-    def deal_hand(self, hand: Hand):
-        self.hand = hand
+        self.bet = 0
 
 
 class Game:
@@ -100,31 +103,112 @@ class Game:
         self.n_players = n_players
         self.players_names = players_names
 
-        self.players = [Player(name, 500) for name in players_names]
-        self.dealer = random.randint(0, n_players - 1)
+        self.players = [Player(name, 2000) for name in players_names]
+        self.dealer_idx = random.randint(0, n_players - 1)
+        self.blinds_level = 0
 
     def loop(self):
         while len(self.players) > 1:
-            round = Round(self)
+            round = Play(self)
             round.loop()
+            self.dealer_idx += 1
+            self.dealer_idx %= len(self.players)
 
 
-class Round:
+class Play:
     def __init__(self, game: Game):
         self.game = game
+        self.pot = 0
 
         self.deck = Deck()
         self.deck.shuffle()
         self.active_players = self.game.players
-        dealings = self.deck.deal(len(self.active_players))
+        dealings = self.deck.deal(self.game.n_players)
+
+        self.dealer_idx = self.game.dealer_idx
 
         # shall start from dealer
         for i, hand_cards in enumerate(dealings):
-            self.active_players[i].deal_hand(Hand(hand_cards))
+            player_idx = (self.dealer_idx + i) % len(self.active_players)
+            self.active_players[player_idx].hand = Hand(hand_cards)
+
+        # set bets
+        self.small_blind_bet = blinds_table[self.game.blinds_level]['small']
+        self.big_blind_bet = blinds_table[self.game.blinds_level]['big']
+        self.min_bet = self.small_blind_bet
+
+        # set blind indexes
+        self.small_blind_idx = (self.game.dealer_idx + 1) % len(self.active_players)
+        self.big_blind_idx = (self.small_blind_idx + 1) % len(self.active_players)
+
+        # blinds bet
+        self._pay(self.active_players[self.small_blind_idx], self.small_blind_bet)
+        self._pay(self.active_players[self.big_blind_idx], self.big_blind_bet)
+        self.highest_round_bet = self.big_blind_bet
+
+    def _pay(self, player: Player, amount: int):
+        real_amount = min(amount, player.chips)
+        player.chips -= real_amount
+        self.pot += real_amount
+        player.bet = real_amount
+
+    def _actions(self, player: Player):
+        actions = [Action.Fold]
+
+        if player.bet == self.highest_round_bet:
+            actions.append(Action.Check)
+        else: 
+            actions.append(Action.Call)
+        
+        # improve this function
+        if player.chips > 0:
+            actions.append(Action.Bet)
+
+        return actions
+
 
     def loop(self):
-        for player in self.active_players:
-            print(player.hand.cards[0], player.hand.cards[1])
+        folded = set()
+        i = self.dealer_idx
+        end_idx = (self.dealer_idx + len(self.active_players) - 1) % len(self.active_players)
+        last_better = None
+
+        while True:
+            player = self.active_players[i]
+
+            if player in folded:
+                i += 1
+                continue
+
+            if player == last_better:
+                break
+
+            print(player.name, player.hand.cards[0], player.hand.cards[1], player.chips)
+
+            actions = self._actions(player)
+            print(actions)
+            idx_action = int(input("Select an action:"))
+            action = actions[idx_action]
+
+            if action == Action.Fold:
+                folded.add(player)
+
+            elif action == Action.Call:
+                self._pay(player, self.highest_round_bet - player.bet)
+
+            elif action == Action.Bet:
+                # implement it as a function
+                last_better_idx = i
+                bet = int(input('Insert your bet: '))
+                bet += player.bet
+                self.highest_round_bet = bet
+                self._pay(player, bet)
+
+            if last_better == None and i == end_idx:
+                break
+
+            i += 1
+            i %= len(self.active_players)
 
 
 game = Game(3, ['Brooks', 'John', 'Leo'])
