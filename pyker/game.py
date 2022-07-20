@@ -1,6 +1,7 @@
 import enum
 from multiprocessing.sharedctypes import Value
 import random
+from typing import List
 
 
 class Suit(enum.Enum):
@@ -15,6 +16,13 @@ class Action(enum.Enum):
     Call = enum.auto()
     Check = enum.auto()
     Fold = enum.auto()
+
+
+class Round(enum.Enum):
+    PreFlop = enum.auto()
+    Flop = enum.auto()
+    Turn = enum.auto()
+    River = enum.auto()
 
 
 suit_names = {
@@ -78,16 +86,29 @@ class Deck:
     def pop(self):
         return self.cards.pop(0)
 
-    def deal(self, n_players):
-        return [(self.pop(), self.pop()) for i in range(n_players)]
-
 
 class Hand:
-    def __init__(self, cards):
-        if len(cards) != 2:
-            raise ValueError('Unvalid number of cards for the hand.')
+    def __init__(self):
+        self.cards = []
 
-        self.cards = cards
+    def deal(self, deck: Deck):
+        for i in range(2):
+            self.cards.append(deck.pop())
+
+
+class Community:
+    def __init__(self):
+        self.cards = []
+
+    def deal_flop(self, deck: Deck):
+        for i in range(3):
+            self.cards.append(deck.pop())
+
+    def deal_turn(self, deck: Deck):
+        self.cards.append(deck.pop())
+
+    def deal_river(self, deck: Deck):
+        self.cards.append(deck.pop())
 
 
 class Player:
@@ -98,21 +119,79 @@ class Player:
         self.bet = 0
 
 
+class Players:
+    def __init__(self, players: List):
+        self.starting = players
+        self.active = players
+    
+    def is_active(self, player: Player):
+        return player in self.active
+
+    def get_n_starting(self):
+        return len(self.starting)
+    
+    def get_n_active(self):
+        return len(self.active)
+
+    def remove_loser(self, player: Player):
+        self.active.remove(player)
+    
+    def next_to(self, player: Player):
+        idx = self.starting.index(player)
+        checked = 0
+        
+        while checked < self.get_n_starting():
+            idx += 1
+            idx %= self.get_n_starting()
+            possible_next_player = self.starting[idx]
+            if self.is_active(possible_next_player):
+                if possible_next_player == player:
+                    raise ValueError('Only one player left in the game. The game has already ended.')
+                return player
+            checked += 1
+        
+        raise ValueError('The player was not among the players of this game.')
+    
+    def previous_than(self, player: Player):
+        idx = self.starting.index(player)
+        checked = 0
+        
+        while checked < self.get_n_starting():
+            idx -= 1
+            if idx == -1:
+                idx = self.get_n_starting - 1
+            idx %= self.get_n_starting()
+            possible_next_player = self.starting[idx]
+            if self.is_active(possible_next_player):
+                if possible_next_player == player:
+                    raise ValueError('Only one player left in the game. The game has already ended.')
+                return player
+            checked += 1
+        
+        raise ValueError('The player was not among the players of this game.')
+    
+    def take_random(self):
+        idx = random.randint(0, self.get_n_active())
+        return self.active[idx]
+
+
 class Game:
     def __init__(self, n_players, players_names):
         if n_players < 2 or n_players > 8:
             raise ValueError('Unvalid number of players.')
-        self.n_players = n_players
-        self.players_names = players_names
 
-        self.players = [Player(name, 2000) for name in players_names]
-        self.dealer_idx = random.randint(0, n_players - 1)
+        players = [Player(name, 2000) for name in players_names]
+        self.players = Players(players)
+        self.dealer = self.players.take_random()
         self.blinds_level = 0
 
     def loop(self):
         while len(self.players) > 1:
-            round = Play(self)
-            round.loop()
+            play = Play(self)
+            play.run_round(Round.PreFlop)
+            play.run_round(Round.Flop)
+            play.run_round(Round.Turn)
+            play.run_round(Round.River)
             self.dealer_idx += 1
             self.dealer_idx %= len(self.players)
 
@@ -124,7 +203,6 @@ class Play:
 
         self.deck = Deck()
         self.active_players = self.game.players
-
         self.dealer_idx = self.game.dealer_idx
 
         self._deal()
@@ -132,7 +210,6 @@ class Play:
         # set bets
         self.small_blind_bet = blinds_table[self.game.blinds_level]['small']
         self.big_blind_bet = blinds_table[self.game.blinds_level]['big']
-        self.min_bet = self.small_blind_bet
 
         # set blind indexes
         self.small_blind_idx = (self.game.dealer_idx +
@@ -144,6 +221,7 @@ class Play:
         self._pay(
             self.active_players[self.small_blind_idx], self.small_blind_bet)
         self._pay(self.active_players[self.big_blind_idx], self.big_blind_bet)
+        self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = self.big_blind_bet
 
     def _deal(self):
@@ -175,11 +253,25 @@ class Play:
 
         return actions
 
-    def loop(self):
+    def _bet(self, player: Player):
+        bet = int(input('Insert your bet: '))
+
+        while bet < self.highest_round_bet + self.min_allowed_bet or bet > player.chips:
+            # raise ValueError('Can\t bet this amount.')
+            bet = int(input('Insert your bet: '))
+
+        self.min_allowed_bet = bet - self.highest_round_bet
+        self.highest_round_bet = bet
+
+        bet -= player.bet
+        self._pay(player, bet)
+
+    def run_round(self, round: Round):
         folded = set()
         i = self.dealer_idx
         end_idx = (self.dealer_idx + len(self.active_players) -
                    1) % len(self.active_players)
+        last_player = self.active_players[end_idx]
         last_better = None
 
         while True:
@@ -207,19 +299,19 @@ class Play:
                 self._pay(player, self.highest_round_bet - player.bet)
 
             elif action == Action.Bet:
-                # implement it as a function
-                last_better_idx = i
-                bet = int(input('Insert your bet: '))
-                bet += player.bet
-                self.highest_round_bet = bet
-                self._pay(player, bet)
+                last_better = player
+                self._bet(player)
 
-            if last_better == None and i == end_idx:
+            if last_better == None and player == last_player:
                 break
 
             i += 1
             i %= len(self.active_players)
 
+        self.active_players = [
+            player for player in self.active_players if player not in folded]
+        print("END BETTING ROUND")
 
-game = Game(3, ['Brooks', 'John', 'Leo'])
+
+game = Game(4, ['Brooks', 'John', 'Leo', 'Lisa'])
 game.loop()
