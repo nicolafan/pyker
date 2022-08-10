@@ -88,10 +88,9 @@ class Deck:
 
 
 class Hand:
-    def __init__(self):
+    def __init__(self, deck: Deck):
         self.cards = []
 
-    def deal(self, deck: Deck):
         for i in range(2):
             self.cards.append(deck.pop())
 
@@ -122,7 +121,7 @@ class Player:
 class Players:
     def __init__(self, players: List):
         self.starting = players
-        self.active = players
+        self.active = players.copy()
     
     def is_active(self, player: Player):
         return player in self.active
@@ -138,41 +137,46 @@ class Players:
     
     def next_to(self, player: Player):
         idx = self.starting.index(player)
-        checked = 0
+        n_checked = 1
         
-        while checked < self.get_n_starting():
+        while n_checked < self.get_n_starting():
             idx += 1
             idx %= self.get_n_starting()
             possible_next_player = self.starting[idx]
             if self.is_active(possible_next_player):
                 if possible_next_player == player:
                     raise ValueError('Only one player left in the game. The game has already ended.')
-                return player
-            checked += 1
+                return possible_next_player
+            n_checked += 1
         
         raise ValueError('The player was not among the players of this game.')
     
     def previous_than(self, player: Player):
         idx = self.starting.index(player)
-        checked = 0
+        n_checked = 0
         
-        while checked < self.get_n_starting():
+        while n_checked < self.get_n_starting():
             idx -= 1
             if idx == -1:
-                idx = self.get_n_starting - 1
+                idx = self.get_n_starting() - 1
             idx %= self.get_n_starting()
-            possible_next_player = self.starting[idx]
-            if self.is_active(possible_next_player):
-                if possible_next_player == player:
+            possible_previous_player = self.starting[idx]
+            if self.is_active(possible_previous_player):
+                if possible_previous_player == player:
                     raise ValueError('Only one player left in the game. The game has already ended.')
-                return player
-            checked += 1
+                return possible_previous_player
+            n_checked += 1
         
         raise ValueError('The player was not among the players of this game.')
     
     def take_random(self):
-        idx = random.randint(0, self.get_n_active())
+        idx = random.randint(0, self.get_n_active() - 1)
         return self.active[idx]
+
+    def first_active_from(self, player: Player):
+        if self.is_active(player):
+            return player
+        return self.next_to(player)
 
 
 class Game:
@@ -186,7 +190,7 @@ class Game:
         self.blinds_level = 0
 
     def loop(self):
-        while len(self.players) > 1:
+        while self.players.get_n_active() > 1:
             play = Play(self)
             play.run_round(Round.PreFlop)
             play.run_round(Round.Flop)
@@ -202,8 +206,9 @@ class Play:
         self.pot = 0
 
         self.deck = Deck()
-        self.active_players = self.game.players
-        self.dealer_idx = self.game.dealer_idx
+        self.players = self.game.players
+        self.folded = set()
+        self.dealer = self.game.dealer
 
         self._deal()
 
@@ -212,26 +217,23 @@ class Play:
         self.big_blind_bet = blinds_table[self.game.blinds_level]['big']
 
         # set blind indexes
-        self.small_blind_idx = (self.game.dealer_idx +
-                                1) % len(self.active_players)
-        self.big_blind_idx = (self.small_blind_idx +
-                              1) % len(self.active_players)
+        self.small_blind = self.players.next_to(self.dealer)
+        self.big_blind = self.players.next_to(self.small_blind)
 
         # blinds bet
-        self._pay(
-            self.active_players[self.small_blind_idx], self.small_blind_bet)
-        self._pay(self.active_players[self.big_blind_idx], self.big_blind_bet)
+        self._pay(self.small_blind, self.small_blind_bet)
+        self._pay(self.big_blind, self.big_blind_bet)
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = self.big_blind_bet
 
     def _deal(self):
         self.deck.shuffle()
-        dealings = self.deck.deal(len(self.active_players))
 
-        # shall start from dealer
-        for i, hand_cards in enumerate(dealings):
-            player_idx = (self.dealer_idx + i) % len(self.active_players)
-            self.active_players[player_idx].hand = Hand(hand_cards)
+        self.dealer.hand = Hand(self.deck)
+        next_player = self.players.next_to(self.dealer)
+        while next_player != self.dealer:
+            next_player.hand = Hand(self.deck)
+            next_player = self.players.next_to(next_player)
 
     def _pay(self, player: Player, amount: int):
         real_amount = min(amount, player.chips)
@@ -267,18 +269,15 @@ class Play:
         self._pay(player, bet)
 
     def run_round(self, round: Round):
-        folded = set()
-        i = self.dealer_idx
-        end_idx = (self.dealer_idx + len(self.active_players) -
-                   1) % len(self.active_players)
-        last_player = self.active_players[end_idx]
+        last_player = self.players.previous_than(self.dealer)
         last_better = None
+        player = self.players.next_to(self.big_blind)
+        if round != Round.PreFlop:
+            player = self.players.first_active_from(self.dealer)
 
         while True:
-            player = self.active_players[i]
-
-            if player in folded:
-                i += 1
+            if player in self.folded:
+                player = self.players.next_to(player)
                 continue
 
             if player == last_better:
@@ -293,7 +292,7 @@ class Play:
             action = actions[idx_action]
 
             if action == Action.Fold:
-                folded.add(player)
+                self.folded.add(player)
 
             elif action == Action.Call:
                 self._pay(player, self.highest_round_bet - player.bet)
@@ -305,13 +304,9 @@ class Play:
             if last_better == None and player == last_player:
                 break
 
-            i += 1
-            i %= len(self.active_players)
-
-        self.active_players = [
-            player for player in self.active_players if player not in folded]
         print("END BETTING ROUND")
 
 
 game = Game(4, ['Brooks', 'John', 'Leo', 'Lisa'])
+print(game.dealer.name, game.players.next_to(game.dealer).name, game.players.active)
 game.loop()
