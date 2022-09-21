@@ -29,12 +29,12 @@ class Play:
 
         self.deck = Deck()
         self.players = self.game.players
-        self.folded = set()
+        self.folded_players = set()
         self.dealer = self.game.dealer
 
         self._deal()
 
-        self.community = Community(self.deck)
+        self.community = Community()
         # set bets
         self.small_blind_bet = blinds_table[self.game.blinds_level]['small']
         self.big_blind_bet = blinds_table[self.game.blinds_level]['big']
@@ -49,26 +49,36 @@ class Play:
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = self.big_blind_bet
 
+    def _reset_round(self):
+        self.min_allowed_bet = self.big_blind_bet
+        self.highest_round_bet = 0
+
+    def _end_play(self):
+        print("end")
+
     def loop(self):
         self._run_round(Round.PreFlop)
-        self.community.deal(Round.Flop)
+        self.deck.deal_community_cards(self.community)
         print(self.community.cards[0],
               self.community.cards[1], self.community.cards[2])
+        self._reset_round()
         self._run_round(Round.Flop)
-        self.community.deal(Round.Turn)
+        self.deck.deal_community_cards(self.community)
         print(self.community.cards[3])
+        self._reset_round()
         self._run_round(Round.Turn)
-        self.community.deal(Round.River)
+        self.deck.deal_community_cards(self.community)
         print(self.community.cards[4])
+        self._reset_round()
         self._run_round(Round.River)
 
     def _deal(self):
         self.deck.shuffle()
 
-        self.dealer.hand = Hand(self.deck)
+        self.dealer.hand = self.deck.deal_hand()
         next_player = self.players.next_to(self.dealer)
         while next_player != self.dealer:
-            next_player.hand = Hand(self.deck)
+            next_player.hand = self.deck.deal_hand()
             next_player = self.players.next_to(next_player)
 
     def _pay(self, player: Player, amount: int):
@@ -118,7 +128,7 @@ class Play:
             last_player = self.big_blind
 
         while True:
-            if player in self.folded:
+            if player in self.folded_players:
                 player = self.players.next_to(player)
                 continue
 
@@ -134,7 +144,7 @@ class Play:
             action = actions[idx_action]
 
             if action == Action.Fold:
-                self.folded.add(player)
+                self.folded_players.add(player)
 
             elif action == Action.Call:
                 self._pay(player, self.highest_round_bet - player.bet)

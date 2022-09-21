@@ -63,12 +63,23 @@ class Card:
         self.suit = suit
         self.rank = rank
 
+    def __eq__(self, other):
+        return self.suit == other.suit and self.rank == other.rank
+
     def __lt__(self, other):
         return self.rank < other.rank
 
     def __str__(self):
         return rank_symbols[self.rank] + " of " + suit_names[self.suit]
 
+class Hand:
+    def __init__(self, cards: list[Card]):
+        self.cards = cards
+
+
+class Community:
+    def __init__(self):
+        self.cards = []
 
 class Deck:
     def __init__(self):
@@ -85,28 +96,16 @@ class Deck:
     def pop(self):
         return self.cards.pop(0)
 
-
-class Hand:
-    def __init__(self, deck: Deck):
-        self.cards = []
-
-        for i in range(2):
-            self.cards.append(deck.pop())
-
-
-class Community:
-    def __init__(self, deck: Deck):
-        self.cards = []
-        self.deck = deck
-
-    def deal(self, round: Round):
-        n_cards = 1
-
-        if round == round.Flop:
-            n_cards = 3
-        for i in range(n_cards):
-            self.cards.append(self.deck.pop())
-
+    def deal_hand(self):
+        return Hand([self.pop(), self.pop()])
+    
+    def deal_community_cards(self, community: Community):
+        if community.cards:
+            # deal turn or river
+            community.cards.append(self.pop())
+        else:
+            # deal flop
+            community.cards += [self.pop(), self.pop(), self.pop()]
 
 class Player:
     def __init__(self, name: string, chips: int):
