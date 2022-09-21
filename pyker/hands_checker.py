@@ -1,7 +1,7 @@
-from entities import *
+from pyker.entities import *
 
-def check_straight_flush(Hand, Community):
-    cards = Hand.cards + Community.cards
+def check_straight_flush(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
     high_card = None
 
     for suit in Suit:

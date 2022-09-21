@@ -1,3 +1,6 @@
 /.venv
+/.pytest_cache
+/.vscode
 /__pycache__
 /pyker/__pycache__
+/tests/__pycache__

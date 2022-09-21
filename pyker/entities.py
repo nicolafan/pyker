@@ -1,7 +1,6 @@
 import enum
 import random
 import string
-from typing import List
 
 class Suit(enum.Enum):
     Clubs = enum.auto()
@@ -116,7 +115,7 @@ class Player:
 
 
 class Players:
-    def __init__(self, players: List[Player]):
+    def __init__(self, players: list[Player]):
         self.starting = players
         self.active = players.copy()
 

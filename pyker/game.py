@@ -1,6 +1,4 @@
-from entities import *
-from multiprocessing.sharedctypes import Value
-from typing import List
+from pyker.entities import *
 
 
 class Game:
