@@ -11,7 +11,8 @@ class Game:
         players = [Player(name, 2000) for name in players_names]
         self.players = Players(players)
 
-        self.dealer = self.players.take_random()
+        # self.dealer = self.players.take_random()
+        self.dealer = players[0]
         self.blinds_level = 0
 
     def loop(self):
@@ -51,13 +52,14 @@ class Play:
     def loop(self):
         self._run_round(Round.PreFlop)
         self.community.deal(Round.Flop)
-        print(self.community.cards)
+        print(self.community.cards[0],
+              self.community.cards[1], self.community.cards[2])
         self._run_round(Round.Flop)
         self.community.deal(Round.Turn)
-        print(self.community.cards)
+        print(self.community.cards[3])
         self._run_round(Round.Turn)
         self.community.deal(Round.River)
-        print(self.community.cards)
+        print(self.community.cards[4])
         self._run_round(Round.River)
 
     def _deal(self):
@@ -85,21 +87,25 @@ class Play:
 
         # improve this function
         if player.chips > 0:
-            actions.append(Action.Bet)
+            actions.append(Action.BetOrRaise)
 
         return actions
 
     def _bet(self, player: Player):
+        if player.chips < self.highest_round_bet:
+            raise ValueError("Cant bet!")
+        player.chips -= self.highest_round_bet - player.bet
+        player.bet = self.highest_round_bet
+        
         bet = int(input('Insert your bet: '))
 
-        while bet < self.highest_round_bet + self.min_allowed_bet or bet > player.chips:
+        while bet < self.min_allowed_bet or bet > player.chips:
             # raise ValueError('Can\t bet this amount.')
             bet = int(input('Insert your bet: '))
 
-        self.min_allowed_bet = bet - self.highest_round_bet
-        self.highest_round_bet = bet
-
-        bet -= player.bet
+        self.min_allowed_bet = bet
+        player.bet += bet
+        self.highest_round_bet = player.bet
         self._pay(player, bet)
 
     def _run_round(self, round: Round):
@@ -133,7 +139,7 @@ class Play:
             elif action == Action.Call:
                 self._pay(player, self.highest_round_bet - player.bet)
 
-            elif action == Action.Bet:
+            elif action == Action.BetOrRaise:
                 last_better = player
                 self._bet(player)
 

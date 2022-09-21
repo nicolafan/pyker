@@ -1,5 +1,6 @@
 import enum
 import random
+import string
 from typing import List
 
 class Suit(enum.Enum):
@@ -10,7 +11,7 @@ class Suit(enum.Enum):
 
 
 class Action(enum.Enum):
-    Bet = enum.auto()
+    BetOrRaise = enum.auto()
     Call = enum.auto()
     Check = enum.auto()
     Fold = enum.auto()
@@ -58,7 +59,7 @@ blinds_table = {
 
 
 class Card:
-    def __init__(self, suit, rank) -> None:
+    def __init__(self, suit: Suit, rank: int) -> None:
         self.suit = suit
         self.rank = rank
 
@@ -108,7 +109,7 @@ class Community:
 
 
 class Player:
-    def __init__(self, name, chips):
+    def __init__(self, name: string, chips: int):
         self.name = name
         self.chips = chips
         self.hand = None
@@ -116,7 +117,7 @@ class Player:
 
 
 class Players:
-    def __init__(self, players: List):
+    def __init__(self, players: List[Player]):
         self.starting = players
         self.active = players.copy()
 
