@@ -1,6 +1,24 @@
 from pyker.entities import *
 
 
+def _get_n_higher_cards(cards: list[Card], n: int):
+    cards.sort()
+
+    for rank in Rank:
+        start = -1
+        end = -1
+        for i in range(len(cards)):
+            if cards[i].rank == rank:
+                if start == -1:
+                    start = i
+                end = i
+        if end > start:
+            cards[start:end+1] = list(reversed(cards[start:end+1]))
+
+    cards.reverse()
+    return cards[:n]
+                
+
 def check_straight_flush(hand: Hand, community: Community):
     cards = hand.cards + community.cards
     straight_flush = []
@@ -52,13 +70,9 @@ def check_four_of_a_kind(hand: Hand, community: Community):
         if len(four_of_a_kind) == 4:
             # find the kicker
             four_of_a_kind.sort()
-            four_of_a_kind.append(None)
-            for card in cards:
-                if card not in four_of_a_kind:
-                    kicker = four_of_a_kind[-1]
-                    if kicker is None or kicker.rank != card.rank:
-                        kicker = card
-                        four_of_a_kind[-1] = kicker
+            remaining_cards = [card for card in cards if not card in four_of_a_kind]
+            kicker = _get_n_higher_cards(remaining_cards, 1)
+            four_of_a_kind += kicker
             return four_of_a_kind
 
     return None
@@ -139,10 +153,10 @@ def check_three_of_a_kind(hand: Hand, community: Community):
     for rank in Rank:
         poss_tris = [card for card in cards if card.rank == rank]
         if len(poss_tris) >= 3:
-            kickers = [card for card in cards if card not in poss_tris][-2:]
-            if kickers[0].rank != kickers[1].rank:
-                kickers.reverse()
-            tris = poss_tris[:3] + kickers
+            poss_tris = poss_tris[:3]
+            remaining_cards = [card for card in cards if card not in poss_tris]
+            kickers = _get_n_higher_cards(remaining_cards, 2)
+            tris = poss_tris + kickers
     
     return tris
 
@@ -150,7 +164,7 @@ def check_three_of_a_kind(hand: Hand, community: Community):
 def check_two_pair(hand: Hand, community: Community):
     cards = hand.cards + community.cards
     cards.sort()
-    two_pair = []
+    two_pair = None
 
     for rank1 in Rank:
         pair1 = [card for card in cards if card.rank == rank1]
@@ -161,16 +175,37 @@ def check_two_pair(hand: Hand, community: Community):
                 pair2 = [card for card in cards if card.rank == rank2]
                 if len(pair2) >= 2:
                     two_pair = pair1[:2] + pair2[:2]
+    
+    if two_pair is None:
+        return None
 
-    two_pair.append(None)
-    for card in cards:
-        if card not in two_pair:
-            kicker = two_pair[-1]
-            if kicker is None or kicker.rank != card.rank:
-                kicker = card
-                two_pair[-1] = kicker
+    remaining_cards = [card for card in cards if not card in two_pair]
+    kicker = _get_n_higher_cards(remaining_cards, 1)
+    two_pair += kicker
     
     return two_pair
     
     
+def check_one_pair(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+    cards.sort()
+    one_pair = None
 
+    for rank in Rank:
+        poss_pair = [card  for card in cards if card.rank == rank]
+        if len(poss_pair) >= 2:
+            one_pair = poss_pair[:2]
+
+    if one_pair is None:
+        return None
+    
+    remaining_cards = [card for card in cards if not card in one_pair]
+    kickers = _get_n_higher_cards(remaining_cards, 3)
+    one_pair = one_pair + kickers
+
+    return one_pair
+
+
+def check_high_card(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+    return _get_n_higher_cards(cards, 5)
