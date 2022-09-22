@@ -145,3 +145,32 @@ def check_three_of_a_kind(hand: Hand, community: Community):
             tris = poss_tris[:3] + kickers
     
     return tris
+
+
+def check_two_pair(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+    cards.sort()
+    two_pair = []
+
+    for rank1 in Rank:
+        pair1 = [card for card in cards if card.rank == rank1]
+        if len(pair1) >= 2:
+            for rank2 in Rank:
+                if rank2 >= rank1:
+                    break
+                pair2 = [card for card in cards if card.rank == rank2]
+                if len(pair2) >= 2:
+                    two_pair = pair1[:2] + pair2[:2]
+
+    two_pair.append(None)
+    for card in cards:
+        if card not in two_pair:
+            kicker = two_pair[-1]
+            if kicker is None or kicker.rank != card.rank:
+                kicker = card
+                two_pair[-1] = kicker
+    
+    return two_pair
+    
+    
+

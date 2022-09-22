@@ -199,3 +199,17 @@ def test_check_straight(hand, community, expected):
 def test_check_three_of_a_kind(hand, community, expected):
     assert check_three_of_a_kind(hand, community) == expected
 
+
+@pytest.mark.parametrize(
+    "hand,community,expected",
+    [
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(S, RK), (C, RK), (C, RQ), (C, RJ), (S, RQ)]),
+            bcs([(H, RA), (S, RA), (C, RK), (S, RK), (C, RQ)]),
+        )
+    ],
+)
+def test_check_two_pair(hand, community, expected):
+    assert check_two_pair(hand, community) == expected
+
