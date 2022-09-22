@@ -2,11 +2,25 @@ import enum
 import random
 import string
 
-class Suit(enum.Enum):
-    Clubs = enum.auto()
-    Diamonds = enum.auto()
-    Hearts = enum.auto()
-    Spades = enum.auto()
+class Rank(enum.IntEnum):
+    R2 = 2
+    R3 = 3
+    R4 = 4
+    R5 = 5
+    R6 = 6
+    R7 = 7
+    R8 = 8
+    R9 = 9
+    R10 = 10
+    RJ = 11
+    RQ = 12
+    RK = 13
+    RA = 14
+class Suit(enum.IntEnum):
+    Clubs = 0
+    Diamonds = 1
+    Hearts = 2
+    Spades = 3
 
 
 class Action(enum.Enum):
@@ -30,22 +44,6 @@ suit_names = {
     Suit.Spades: 'spades'
 }
 
-rank_symbols = {
-    1: 'A',
-    2: '2',
-    3: '3',
-    4: '4',
-    5: '5',
-    6: '6',
-    7: '7',
-    8: '8',
-    9: '9',
-    10: '10',
-    11: 'J',
-    12: 'Q',
-    13: 'K'
-}
-
 blinds_table = {
     0: {'small': 25, 'big': 50, 'time': 15 * 60},
     1: {'small': 50, 'big': 100, 'time': 30 * 60},
@@ -58,18 +56,25 @@ blinds_table = {
 
 
 class Card:
-    def __init__(self, suit: Suit, rank: int) -> None:
+    def __init__(self, suit: Suit, rank: Rank) -> None:
         self.suit = suit
         self.rank = rank
 
     def __eq__(self, other):
+        if not isinstance(other, Card):
+            return False
         return self.suit == other.suit and self.rank == other.rank
 
     def __lt__(self, other):
-        return self.rank < other.rank
+        if self.rank < other.rank:
+            return True
+        if self.rank == other.rank:
+            if self.suit < other.suit:
+                return True
+        return False
 
     def __str__(self):
-        return rank_symbols[self.rank] + " of " + suit_names[self.suit]
+        return self.rank + " of " + suit_names[self.suit]
 
 class Hand:
     def __init__(self, cards: list[Card]):
@@ -82,12 +87,7 @@ class Community:
 
 class Deck:
     def __init__(self):
-        self.cards = []
-        for i in range(1, 14):
-            self.cards.append(Card(Suit.Clubs, i))
-            self.cards.append(Card(Suit.Diamonds, i))
-            self.cards.append(Card(Suit.Hearts, i))
-            self.cards.append(Card(Suit.Spades, i))
+        self.cards = [Card(suit, rank) for rank in Rank for suit in Suit]
 
     def shuffle(self):
         random.shuffle(self.cards)

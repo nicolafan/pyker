@@ -1,32 +1,33 @@
 import pytest
 
-from tests.util import build_card as bc, build_hand as bh, build_community as bcm
+from tests.util import *
+from tests.util import build_card as bc, build_cards as bcs, build_hand as bh, build_community as bcm
 from pyker.hands_checker import *
-
-C = Suit.Clubs
-D = Suit.Diamonds
-H = Suit.Hearts
-S = Suit.Spades
 
 
 @pytest.mark.parametrize(
     "hand,community,expected",
     [
         (
-            bh((C, 1), (C, 2)),
-            bcm([(C, 3), (D, 1), (C, 4), (C, 5), (C, 6)]),
-            [bc((C, 6)), bc((C, 5)), bc((C, 4)), bc((C, 3)), bc((C,2))],
+            bh((C, RA), (C, R2)),
+            bcm([(C, R3), (D, RA), (C, R4), (C, R5), (C, R6)]),
+            bcs([(C, R6), (C, R5), (C, R4), (C, R3), (C, R2)]),
         ),
         (
-            bh((H, 1), (D, 2)),
-            bcm([(S, 9), (S, 10), (S, 11), (S, 12), (S, 13)]),
-            [bc((S, 13)), bc((S, 12)), bc((S, 11)), bc((S, 10)), bc((S, 9))],
+            bh((H, RA), (D, R2)),
+            bcm([(S, R9), (S, R10), (S, RJ), (S, RQ), (S, RK)]),
+            bcs([(S, RK), (S, RQ), (S, RJ), (S, R10), (S, R9)]),
         ),
         (
-            bh((H, 10), (H, 1)),
-            bcm([(S, 9), (H, 11), (H, 12), (H, 13), (D, 2)]),
-            [bc((H, 1)), bc((H, 13)), bc((H, 12)), bc((H, 11)), bc((H, 10))],
+            bh((H, R10), (H, RA)),
+            bcm([(S, R9), (H, RJ), (H, RQ), (H, RK), (D, R2)]),
+            bcs([(H, RA), (H, RK), (H, RQ), (H, RJ), (H, R10)]),
         ),
+        (
+            bh((H, RA), (H, R5)),
+            bcm([(H, R2), (H, R3), (H, R4), (H, R7), (H, R9)]),
+            bcs([(H, R5), (H, R4), (H, R3), (H, R2), (H, RA)])
+        )
     ],
 )
 def test_check_straight_flush(hand, community, expected):
@@ -37,14 +38,33 @@ def test_check_straight_flush(hand, community, expected):
     "hand,community",
     [
         (
-            bh((C, 1), (C, 2)),
-            bcm([(C, 4), (D, 1), (C, 5), (C, 6), (C, 7)]),
+            bh((C, RA), (C, R2)),
+            bcm([(C, R4), (D, RA), (C, R5), (C, R6), (C, R7)]),
         ),
         (
-            bh((H, 2), (D, 3)),
-            bcm([(D, 4), (H, 10), (H, 11), (H, 12), (H, 13)]),
+            bh((H, R2), (D, R3)),
+            bcm([(D, R4), (H, R10), (H, RJ), (H, RQ), (H, RK)]),
         )
     ],
 )
 def test_check_straight_flush_not_straight_flash(hand, community):
     assert check_straight_flush(hand, community) == None
+
+
+@pytest.mark.parametrize(
+    "hand,community,expected",
+    [
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(C, RA), (H, RK), (H, RQ), (D, R2), (D,RA)]),
+            bcs([(C, RA), (D, RA), (H, RA), (S, RA), (H, RK)])
+        ),
+        (
+            bh((C, RA), (S, RA)),
+            bcm([(C, RK), (H, RK), (D, RQ), (S, RK), (D, RK)]),
+            bcs([(C, RK), (D, RK), (H, RK), (S, RK), (C, RA)])
+        )
+    ]
+)
+def test_check_four_of_a_kind(hand, community, expected):
+    assert check_four_of_a_kind(hand, community) == expected
