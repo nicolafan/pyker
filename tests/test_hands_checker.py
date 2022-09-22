@@ -177,17 +177,25 @@ def test_check_straight(hand, community, expected):
 
 
 @pytest.mark.parametrize(
-    "hand,community",
+    "hand,community,expected",
     [
         (
-            bh((C, RA), (C, R2)),
-            bcm([(C, R4), (D, RA), (C, R5), (C, R6), (C, R7)]),
+            bh((H, RA), (S, RA)),
+            bcm([(S, R2), (C, RA), (C, R2), (C, RK), (S, RQ)]),
+            bcs([(C, RA), (H, RA), (S, RA), (C, RK), (S, RQ)]),
         ),
         (
-            bh((H, R2), (D, R3)),
-            bcm([(D, R4), (H, R10), (H, RJ), (H, RQ), (H, RK)]),
+            bh((H, RQ), (H, RJ)),
+            bcm([(S, RQ), (S, R10), (C, RA), (H, RK), (C, RQ)]),
+            bcs([(C, RQ), (H, RQ), (S, RQ), (C, RA), (H, RK)]),
+        ),
+        (
+            bh((H, RJ), (S, RA)),
+            bcm([(C, RA), (H, RK), (H, RQ), (D, RJ), (D, RA)]),
+            bcs([(C, RA), (D, RA), (S, RA), (H, RK), (H, RQ)]),
         ),
     ],
 )
-def test_check_straight(hand, community):
-    assert check_straight(hand, community) == None
+def test_check_three_of_a_kind(hand, community, expected):
+    assert check_three_of_a_kind(hand, community) == expected
+

@@ -102,7 +102,7 @@ def check_straight(hand: Hand, community: Community):
 
     poss_straight = [cards[0]]
 
-    for card in cards:
+    for card in cards[1:]:
         if card.rank == poss_straight[-1].rank + 1:
             poss_straight.append(card)
         elif card.rank == poss_straight[-1].rank:
@@ -111,6 +111,9 @@ def check_straight(hand: Hand, community: Community):
             if len(poss_straight) > len(straight):
                 straight = poss_straight
             poss_straight = [card]
+        
+        if len(poss_straight) >= 5:
+            straight = poss_straight
 
     # special case: A-2-3-4-5 because A is considered to be after K
     if len(straight) == 4:
@@ -126,3 +129,19 @@ def check_straight(hand: Hand, community: Community):
 
     straight.reverse()
     return straight[:5]
+
+
+def check_three_of_a_kind(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+    cards.sort()
+    tris = None
+
+    for rank in Rank:
+        poss_tris = [card for card in cards if card.rank == rank]
+        if len(poss_tris) >= 3:
+            kickers = [card for card in cards if card not in poss_tris][-2:]
+            if kickers[0].rank != kickers[1].rank:
+                kickers.reverse()
+            tris = poss_tris[:3] + kickers
+    
+    return tris
