@@ -79,6 +79,16 @@ class Card:
     def __str__(self):
         return str(self.rank) + " of " + suit_names[self.suit]
 
+    def compare_to_by_rank(self, other):
+        comparison = 1
+
+        if self.rank > other.rank:
+            comparison = -1
+        elif self.rank == other.rank:
+            comparison = 0
+
+        return comparison
+
 
 class Hand:
     def __init__(self, cards: list[Card]):
@@ -188,3 +198,7 @@ class Players:
         if self.is_active(player):
             return player
         return self.previous_than(player)
+
+    def reset_bets(self):
+        for player in self.active:
+            player.bet = 0

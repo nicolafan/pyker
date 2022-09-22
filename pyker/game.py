@@ -1,4 +1,6 @@
+import math
 from pyker.entities import *
+from pyker.hands_checker import get_winners
 
 
 class Game:
@@ -50,6 +52,7 @@ class Play:
     def _reset_round(self):
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = 0
+        self.players.reset_bets()
 
     def _end_play(self):
         print("end")
@@ -68,6 +71,11 @@ class Play:
         print(self.community.cards[4])
         self._reset_round()
         self._run_round(Round.River)
+
+        winners = get_winners(self.players.active, self.community)
+        amount = math.ceil(self.pot / len(winners))
+        for winner in winners:
+            winner.chips += amount
 
     def _deal(self):
         self.deck.shuffle()

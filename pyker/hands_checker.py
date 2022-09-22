@@ -1,4 +1,24 @@
+from turtle import pos
 from pyker.entities import *
+import enum
+
+
+class HandRank(enum.IntEnum):
+    StraightFlush = 9
+    FourOfAKind = 8
+    FullHouse = 7
+    Flush = 6
+    Straight = 5
+    ThreeOfAKind = 4
+    TwoPair = 3
+    OnePair = 2
+    HighCard = 1
+
+
+class HandComparison(enum.IntEnum):
+    Lose = -1
+    Draw = 0
+    Win = 1
 
 
 def _get_n_higher_cards(cards: list[Card], n: int):
@@ -13,11 +33,11 @@ def _get_n_higher_cards(cards: list[Card], n: int):
                     start = i
                 end = i
         if end > start:
-            cards[start:end+1] = list(reversed(cards[start:end+1]))
+            cards[start : end + 1] = list(reversed(cards[start : end + 1]))
 
     cards.reverse()
     return cards[:n]
-                
+
 
 def check_straight_flush(hand: Hand, community: Community):
     cards = hand.cards + community.cards
@@ -125,7 +145,7 @@ def check_straight(hand: Hand, community: Community):
             if len(poss_straight) > len(straight):
                 straight = poss_straight
             poss_straight = [card]
-        
+
         if len(poss_straight) >= 5:
             straight = poss_straight
 
@@ -157,7 +177,7 @@ def check_three_of_a_kind(hand: Hand, community: Community):
             remaining_cards = [card for card in cards if card not in poss_tris]
             kickers = _get_n_higher_cards(remaining_cards, 2)
             tris = poss_tris + kickers
-    
+
     return tris
 
 
@@ -175,30 +195,30 @@ def check_two_pair(hand: Hand, community: Community):
                 pair2 = [card for card in cards if card.rank == rank2]
                 if len(pair2) >= 2:
                     two_pair = pair1[:2] + pair2[:2]
-    
+
     if two_pair is None:
         return None
 
     remaining_cards = [card for card in cards if not card in two_pair]
     kicker = _get_n_higher_cards(remaining_cards, 1)
     two_pair += kicker
-    
+
     return two_pair
-    
-    
+
+
 def check_one_pair(hand: Hand, community: Community):
     cards = hand.cards + community.cards
     cards.sort()
     one_pair = None
 
     for rank in Rank:
-        poss_pair = [card  for card in cards if card.rank == rank]
+        poss_pair = [card for card in cards if card.rank == rank]
         if len(poss_pair) >= 2:
             one_pair = poss_pair[:2]
 
     if one_pair is None:
         return None
-    
+
     remaining_cards = [card for card in cards if not card in one_pair]
     kickers = _get_n_higher_cards(remaining_cards, 3)
     one_pair = one_pair + kickers
@@ -209,3 +229,112 @@ def check_one_pair(hand: Hand, community: Community):
 def check_high_card(hand: Hand, community: Community):
     cards = hand.cards + community.cards
     return _get_n_higher_cards(cards, 5)
+
+
+hands_checkers_dict = {
+    HandRank.StraightFlush: check_straight_flush,
+    HandRank.FourOfAKind: check_four_of_a_kind,
+    HandRank.FullHouse: check_full_house,
+    HandRank.Flush: check_flush,
+    HandRank.Straight: check_straight,
+    HandRank.ThreeOfAKind: check_three_of_a_kind,
+    HandRank.TwoPair: check_two_pair,
+    HandRank.OnePair: check_one_pair,
+    HandRank.HighCard: check_high_card,
+}
+
+
+class HandInfo:
+    def __init__(self, player: Player, hand: list[Card], hand_rank: HandRank):
+        self.player = player
+        self.hand = hand
+        self.hand_rank = hand_rank
+
+        self.high_cards = self._get_high_cards()
+        self.kickers = self._get_kickers()
+
+    def _get_high_cards(self):
+        high_cards = self.hand[:1]
+
+        if self.hand_rank == HandRank.FullHouse:
+            high_cards.append(self.hand[3])
+        elif self.hand_rank == HandRank.TwoPair:
+            high_cards.append(self.hand[2])
+
+        return high_cards
+
+    def _get_kickers(self):
+        kickers = []
+
+        if self.hand_rank == HandRank.FourOfAKind or self.hand_rank == HandRank.TwoPair:
+            kickers.append(self.hand[-1])
+        elif self.hand_rank == HandRank.ThreeOfAKind:
+            kickers += self.hand[-2:]
+        elif self.hand_rank == HandRank.OnePair:
+            kickers += self.hand[-3:]
+        elif self.hand_rank == HandRank.HighCard:
+            kickers += self.hand[-4:]
+
+        return kickers
+
+    def compare_to(self, other):
+        if self.hand_rank > other.hand_rank:
+            return HandComparison.Win
+        if self.hand_rank < other.hand_rank:
+            return HandComparison.Lose
+
+        for card1, card2 in zip(self.high_cards, other.high_cards):
+            comparison = card1.compare_to_by_rank(card2)
+            if comparison < 0:
+                return HandComparison.Win
+            elif comparison > 0:
+                return HandComparison.Lose
+
+        if self.hand_rank == HandRank.Flush:
+            for card1, card2 in zip(self.high_cards, other.high_cards):
+                comparison = card1.compare_to_by_rank(card2)
+                if comparison < 0:
+                    return HandComparison.Win
+                elif comparison > 0:
+                    return HandComparison.Lose
+
+        for card1, card2 in zip(self.kickers, other.kickers):
+            comparison = card1.compare_to_by_rank(card2)
+            if comparison < 0:
+                return HandComparison.Win
+            elif comparison > 0:
+                return HandComparison.Lose
+
+        return HandComparison.Draw
+
+
+def get_winners(players: list[Player], community: Community):
+    hands_info = []
+
+    for player in players:
+        hand_info = {}
+
+        for hand_rank in HandRank:
+            poss_hand = hands_checkers_dict[hand_rank](player.hand, community)
+            if poss_hand is not None:
+                hand_info = HandInfo(player, poss_hand, hand_rank)
+                hands_info.append(hand_info)
+                break
+
+    winners = [hand_info.player for hand_info in hands_info]
+
+    for i in range(len(hands_info)):
+        for j in range(i + 1, len(hands_info)):
+            hand_info1 = hands_info[i]
+            hand_info2 = hands_info[j]
+
+            comparison = hand_info1.compare_to(hand_info2)
+
+            if comparison == HandComparison.Win:
+                if hand_info2.player in winners:
+                    winners.remove(hand_info2.player)
+            elif comparison == HandComparison.Lose:
+                if hand_info1.player in winners:
+                    winners.remove(hand_info1.player)
+
+    return winners
