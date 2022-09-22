@@ -2,6 +2,7 @@ import enum
 import random
 import string
 
+
 class Rank(enum.IntEnum):
     R2 = 2
     R3 = 3
@@ -16,6 +17,8 @@ class Rank(enum.IntEnum):
     RQ = 12
     RK = 13
     RA = 14
+
+
 class Suit(enum.IntEnum):
     Clubs = 0
     Diamonds = 1
@@ -38,20 +41,20 @@ class Round(enum.Enum):
 
 
 suit_names = {
-    Suit.Clubs: 'clubs',
-    Suit.Diamonds: 'diamonds',
-    Suit.Hearts: 'hearts',
-    Suit.Spades: 'spades'
+    Suit.Clubs: "clubs",
+    Suit.Diamonds: "diamonds",
+    Suit.Hearts: "hearts",
+    Suit.Spades: "spades",
 }
 
 blinds_table = {
-    0: {'small': 25, 'big': 50, 'time': 15 * 60},
-    1: {'small': 50, 'big': 100, 'time': 30 * 60},
-    2: {'small': 75, 'big': 150, 'time': 45 * 60},
-    3: {'small': 100, 'big': 200, 'time': 60 * 60},
-    4: {'small': 200, 'big': 400, 'time': 75 * 60},
-    5: {'small': 400, 'big': 800, 'time': 90 * 60},
-    6: {'small': 800, 'big': 1600, 'time': 105 * 60}
+    0: {"small": 25, "big": 50, "time": 15 * 60},
+    1: {"small": 50, "big": 100, "time": 30 * 60},
+    2: {"small": 75, "big": 150, "time": 45 * 60},
+    3: {"small": 100, "big": 200, "time": 60 * 60},
+    4: {"small": 200, "big": 400, "time": 75 * 60},
+    5: {"small": 400, "big": 800, "time": 90 * 60},
+    6: {"small": 800, "big": 1600, "time": 105 * 60},
 }
 
 
@@ -76,6 +79,7 @@ class Card:
     def __str__(self):
         return str(self.rank) + " of " + suit_names[self.suit]
 
+
 class Hand:
     def __init__(self, cards: list[Card]):
         self.cards = cards
@@ -84,6 +88,7 @@ class Hand:
 class Community:
     def __init__(self):
         self.cards = []
+
 
 class Deck:
     def __init__(self):
@@ -97,7 +102,7 @@ class Deck:
 
     def deal_hand(self):
         return Hand([self.pop(), self.pop()])
-    
+
     def deal_community_cards(self, community: Community):
         if community.cards:
             # deal turn or river
@@ -105,6 +110,7 @@ class Deck:
         else:
             # deal flop
             community.cards += [self.pop(), self.pop(), self.pop()]
+
 
 class Player:
     def __init__(self, name: string, chips: int):
@@ -142,11 +148,12 @@ class Players:
             if self.is_active(possible_next_player):
                 if possible_next_player == player:
                     raise ValueError(
-                        'Only one player left in the game. The game has already ended.')
+                        "Only one player left in the game. The game has already ended."
+                    )
                 return possible_next_player
             n_checked += 1
 
-        raise ValueError('The player was not among the players of this game.')
+        raise ValueError("The player was not among the players of this game.")
 
     def previous_than(self, player: Player):
         idx = self.starting.index(player)
@@ -161,11 +168,12 @@ class Players:
             if self.is_active(possible_previous_player):
                 if possible_previous_player == player:
                     raise ValueError(
-                        'Only one player left in the game. The game has already ended.')
+                        "Only one player left in the game. The game has already ended."
+                    )
                 return possible_previous_player
             n_checked += 1
 
-        raise ValueError('The player was not among the players of this game.')
+        raise ValueError("The player was not among the players of this game.")
 
     def take_random(self):
         idx = random.randint(0, self.get_n_active() - 1)

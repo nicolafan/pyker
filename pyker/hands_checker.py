@@ -21,10 +21,10 @@ def check_straight_flush(hand: Hand, community: Community):
                     if len(poss_straight_flush) > len(straight_flush):
                         straight_flush = poss_straight_flush
                     poss_straight_flush = [card]
-            
+
             if len(poss_straight_flush) >= 5:
                 straight_flush = poss_straight_flush
-            
+
         if len(straight_flush) >= 5:
             break
 
@@ -60,7 +60,7 @@ def check_four_of_a_kind(hand: Hand, community: Community):
                         kicker = card
                         four_of_a_kind[-1] = kicker
             return four_of_a_kind
-                    
+
     return None
 
 
@@ -78,7 +78,7 @@ def check_full_house(hand: Hand, community: Community):
                 pair = [card for card in cards if card.rank == pair_rank]
                 if len(pair) >= 2:
                     full_house = tris[:3] + pair[:2]
-    
+
     return full_house
 
 
@@ -91,7 +91,7 @@ def check_flush(hand: Hand, community: Community):
             flush.sort()
             flush.reverse()
             return flush[:5]
-    
+
     return None
 
 
@@ -101,7 +101,7 @@ def check_straight(hand: Hand, community: Community):
     straight = []
 
     poss_straight = [cards[0]]
-    
+
     for card in cards:
         if card.rank == poss_straight[-1].rank + 1:
             poss_straight.append(card)

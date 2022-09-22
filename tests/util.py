@@ -23,6 +23,7 @@ RA = Rank.RA
 def build_card(card: tuple[Suit, Rank]):
     return Card(card[0], card[1])
 
+
 def build_cards(cards: list[tuple[Suit, Rank]]):
     return [build_card(card) for card in cards]
 

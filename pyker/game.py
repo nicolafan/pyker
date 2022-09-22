@@ -4,7 +4,7 @@ from pyker.entities import *
 class Game:
     def __init__(self, n_players, players_names):
         if not 2 <= n_players <= 8:
-            raise ValueError('Unvalid number of players.')
+            raise ValueError("Unvalid number of players.")
 
         players = [Player(name, 2000) for name in players_names]
         self.players = Players(players)
@@ -34,8 +34,8 @@ class Play:
 
         self.community = Community()
         # set bets
-        self.small_blind_bet = blinds_table[self.game.blinds_level]['small']
-        self.big_blind_bet = blinds_table[self.game.blinds_level]['big']
+        self.small_blind_bet = blinds_table[self.game.blinds_level]["small"]
+        self.big_blind_bet = blinds_table[self.game.blinds_level]["big"]
 
         # set blinds
         self.small_blind = self.players.next_to(self.dealer)
@@ -57,8 +57,7 @@ class Play:
     def loop(self):
         self._run_round(Round.PreFlop)
         self.deck.deal_community_cards(self.community)
-        print(self.community.cards[0],
-              self.community.cards[1], self.community.cards[2])
+        print(self.community.cards[0], self.community.cards[1], self.community.cards[2])
         self._reset_round()
         self._run_round(Round.Flop)
         self.deck.deal_community_cards(self.community)
@@ -104,12 +103,12 @@ class Play:
             raise ValueError("Cant bet!")
         player.chips -= self.highest_round_bet - player.bet
         player.bet = self.highest_round_bet
-        
-        bet = int(input('Insert your bet: '))
+
+        bet = int(input("Insert your bet: "))
 
         while bet < self.min_allowed_bet or bet > player.chips:
             # raise ValueError('Can\t bet this amount.')
-            bet = int(input('Insert your bet: '))
+            bet = int(input("Insert your bet: "))
 
         self.min_allowed_bet = bet
         player.bet += bet
@@ -133,8 +132,7 @@ class Play:
             if player == last_better:
                 break
 
-            print(player.name, player.hand.cards[0],
-                  player.hand.cards[1], player.chips)
+            print(player.name, player.hand.cards[0], player.hand.cards[1], player.chips)
 
             actions = self._actions(player)
             print(actions)
@@ -159,7 +157,6 @@ class Play:
         print("END BETTING ROUND")
 
 
-game = Game(4, ['Brooks', 'John', 'Leo', 'Lisa'])
-print(game.dealer.name, game.players.next_to(
-    game.dealer).name, game.players.active)
+game = Game(4, ["Brooks", "John", "Leo", "Lisa"])
+print(game.dealer.name, game.players.next_to(game.dealer).name, game.players.active)
 game.loop()
