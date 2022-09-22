@@ -80,4 +80,49 @@ def check_full_house(hand: Hand, community: Community):
                     full_house = tris[:3] + pair[:2]
     
     return full_house
-            
+
+
+def check_flush(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+
+    for suit in Suit:
+        flush = [card for card in cards if card.suit == suit]
+        if len(flush) >= 5:
+            flush.sort()
+            flush.reverse()
+            return flush[:5]
+    
+    return None
+
+
+def check_straight(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+    cards.sort()
+    straight = []
+
+    poss_straight = [cards[0]]
+    
+    for card in cards:
+        if card.rank == poss_straight[-1].rank + 1:
+            poss_straight.append(card)
+        elif card.rank == poss_straight[-1].rank:
+            continue
+        else:
+            if len(poss_straight) > len(straight):
+                straight = poss_straight
+            poss_straight = [card]
+
+    # special case: A-2-3-4-5 because A is considered to be after K
+    if len(straight) == 4:
+        highest_card = straight[-1]
+        for suit in Suit:
+            if highest_card.rank == Rank.R5 and Card(suit, Rank.RA) in cards:
+                straight = [Card(suit, Rank.RA)] + straight
+                straight.reverse()
+                return straight
+
+    if len(straight) < 5:
+        return None
+
+    straight.reverse()
+    return straight[:5]

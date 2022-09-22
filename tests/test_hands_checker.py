@@ -97,9 +97,9 @@ def test_check_four_of_a_kind_not(hand, community):
             bcs([(C, RQ), (H, RQ), (S, RQ), (C, RJ), (H, RJ)])
         ),
         (
-            bh((H, RA), (S, RA)),
+            bh((H, RJ), (S, RA)),
             bcm([(C, RA), (H, RK), (H, RQ), (D, RQ), (D, RA)]),
-            bcs([(C, RA), (D, RA), (H, RA), (D, RQ), (H, RQ)])
+            bcs([(C, RA), (D, RA), (S, RA), (D, RQ), (H, RQ)])
         )
     ]
 )
@@ -118,3 +118,86 @@ def test_check_full_house(hand, community, expected):
 )
 def test_check_full_house_not(hand, community):
     assert check_full_house(hand, community) == None
+
+
+@pytest.mark.parametrize(
+    "hand,community,expected",
+    [
+        (
+            bh((H, RA), (H, R2)),
+            bcm([(H, R4), (H, R5), (C, R2), (C, RK), (H, R8)]),
+            bcs([(H, RA), (H, R8), (H, R5), (H, R4), (H, R2)])
+        ),
+        (
+            bh((D, RQ), (D, RJ)),
+            bcm([(S, RQ), (S, RJ), (S, RK), (S, R2), (S, R3)]),
+            bcs([(S, RK), (S, RQ), (S, RJ), (S, R3), (S, R2)])
+        ),
+        (
+            bh((H, RA), (H, R5)),
+            bcm([(H, R2), (H, R3), (H, R10), (H, RQ), (H, RJ)]),
+            bcs([(H, RA), (H, RQ), (H, RJ), (H, R10), (H, R5)])
+        )
+    ]
+)
+def test_check_flush(hand, community, expected):
+    assert check_flush(hand, community) == expected
+
+
+@pytest.mark.parametrize(
+    "hand,community",
+    [
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(C, RJ), (H, RJ), (C, RK), (S, RK), (S, R10)])
+        )
+    ]
+)
+def test_check_flush_not(hand, community):
+    assert check_flush(hand, community) == None
+
+
+@pytest.mark.parametrize(
+    "hand,community,expected",
+    [
+        (
+            bh((C, RA), (C, R2)),
+            bcm([(C, R3), (S, R6), (D, R4), (D, R5), (H, R6)]),
+            bcs([(H, R6), (D, R5), (D, R4), (C, R3), (C, R2)]),
+        ),
+        (
+            bh((H, RA), (D, R2)),
+            bcm([(S, R9), (C, R10), (H, RJ), (S, RQ), (H, RK)]),
+            bcs([(H, RA), (H, RK), (S, RQ), (H, RJ), (C, R10)]),
+        ),
+        (
+            bh((H, R10), (H, RA)),
+            bcm([(S, R9), (H, RJ), (D, RQ), (H, RK), (D, R2)]),
+            bcs([(H, RA), (H, RK), (D, RQ), (H, RJ), (H, R10)]),
+        ),
+        (
+            bh((H, RA), (H, R5)),
+            bcm([(D, R2), (C, R3), (D, R4), (C, R7), (S, R9)]),
+            bcs([(H, R5), (D, R4), (C, R3), (D, R2), (H, RA)])
+        )
+    ],
+)
+def test_check_straight(hand, community, expected):
+    assert check_straight(hand, community) == expected
+
+
+@pytest.mark.parametrize(
+    "hand,community",
+    [
+        (
+            bh((C, RA), (C, R2)),
+            bcm([(C, R4), (D, RA), (C, R5), (C, R6), (C, R7)]),
+        ),
+        (
+            bh((H, R2), (D, R3)),
+            bcm([(D, R4), (H, R10), (H, RJ), (H, RQ), (H, RK)]),
+        )
+    ],
+)
+def test_check_straight(hand, community):
+    assert check_straight(hand, community) == None
