@@ -47,7 +47,7 @@ def test_check_straight_flush(hand, community, expected):
         )
     ],
 )
-def test_check_straight_flush_not_straight_flash(hand, community):
+def test_check_straight_flush_not(hand, community):
     assert check_straight_flush(hand, community) == None
 
 
@@ -56,7 +56,7 @@ def test_check_straight_flush_not_straight_flash(hand, community):
     [
         (
             bh((H, RA), (S, RA)),
-            bcm([(C, RA), (H, RK), (H, RQ), (D, R2), (D,RA)]),
+            bcm([(C, RA), (H, RK), (H, RQ), (D, R2), (D, RA)]),
             bcs([(C, RA), (D, RA), (H, RA), (S, RA), (H, RK)])
         ),
         (
@@ -68,3 +68,53 @@ def test_check_straight_flush_not_straight_flash(hand, community):
 )
 def test_check_four_of_a_kind(hand, community, expected):
     assert check_four_of_a_kind(hand, community) == expected
+
+
+@pytest.mark.parametrize(
+    "hand,community",
+    [
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(C, RA), (H, RK), (C, RK), (S, RQ), (S, RK)])
+        )
+    ]
+)
+def test_check_four_of_a_kind_not(hand, community):
+    assert check_four_of_a_kind(hand, community) == None
+
+
+@pytest.mark.parametrize(
+    "hand,community,expected",
+    [
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(S, R2), (C, RA), (C, R2), (C, RK), (S, RK)]),
+            bcs([(C, RA), (H, RA), (S, RA), (C, RK), (S, RK)])
+        ),
+        (
+            bh((H, RQ), (H, RJ)),
+            bcm([(S, RQ), (S, RJ), (C, RJ), (H, RK), (C, RQ)]),
+            bcs([(C, RQ), (H, RQ), (S, RQ), (C, RJ), (H, RJ)])
+        ),
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(C, RA), (H, RK), (H, RQ), (D, RQ), (D, RA)]),
+            bcs([(C, RA), (D, RA), (H, RA), (D, RQ), (H, RQ)])
+        )
+    ]
+)
+def test_check_full_house(hand, community, expected):
+    assert check_full_house(hand, community) == expected
+
+
+@pytest.mark.parametrize(
+    "hand,community",
+    [
+        (
+            bh((H, RA), (S, RA)),
+            bcm([(C, RJ), (H, RJ), (C, RK), (S, RK), (S, R10)])
+        )
+    ]
+)
+def test_check_full_house_not(hand, community):
+    assert check_full_house(hand, community) == None

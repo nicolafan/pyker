@@ -74,7 +74,7 @@ class Card:
         return False
 
     def __str__(self):
-        return self.rank + " of " + suit_names[self.suit]
+        return str(self.rank) + " of " + suit_names[self.suit]
 
 class Hand:
     def __init__(self, cards: list[Card]):

@@ -62,3 +62,22 @@ def check_four_of_a_kind(hand: Hand, community: Community):
             return four_of_a_kind
                     
     return None
+
+
+def check_full_house(hand: Hand, community: Community):
+    cards = hand.cards + community.cards
+    cards.sort()
+    full_house = None
+
+    for tris_rank in Rank:
+        tris = [card for card in cards if card.rank == tris_rank]
+        if len(tris) >= 3:
+            for pair_rank in Rank:
+                if pair_rank == tris_rank:
+                    continue
+                pair = [card for card in cards if card.rank == pair_rank]
+                if len(pair) >= 2:
+                    full_house = tris[:3] + pair[:2]
+    
+    return full_house
+            
