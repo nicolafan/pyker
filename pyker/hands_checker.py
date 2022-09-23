@@ -309,6 +309,9 @@ class HandInfo:
 
 
 def get_winners(players: list[Player], community: Community):
+    if len(players) == 1:
+        return players
+
     hands_info = []
 
     for player in players:

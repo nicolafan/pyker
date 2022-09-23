@@ -19,13 +19,15 @@ class Game:
         while self.players.get_n_active() > 1:
             play = Play(self)
             play.loop()
-            self.dealer = self.players.next_to(self.dealer)
+            if self.players.get_n_active() > 1:
+                self.dealer = self.players.next_to(self.dealer)
+
+        print(f"The winner is {self.players.active[0].name}")
 
 
 class Play:
     def __init__(self, game: Game):
         self.game = game
-        self.pot = 0
 
         self.deck = Deck()
         self.players = self.game.players
@@ -52,15 +54,13 @@ class Play:
     def _reset_round(self):
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = 0
-        self.players.reset_bets()
-
-    def _end_play(self):
-        print("end")
+        self.players.reset_round_bets()
 
     def loop(self):
         self._run_round(Round.PreFlop)
         self.deck.deal_community_cards(self.community)
-        print(self.community.cards[0], self.community.cards[1], self.community.cards[2])
+        print(self.community.cards[0],
+              self.community.cards[1], self.community.cards[2])
         self._reset_round()
         self._run_round(Round.Flop)
         self.deck.deal_community_cards(self.community)
@@ -72,10 +72,40 @@ class Play:
         self._reset_round()
         self._run_round(Round.River)
 
-        winners = get_winners(self.players.active, self.community)
-        amount = math.ceil(self.pot / len(winners))
-        for winner in winners:
-            winner.chips += amount
+        # manage end play
+        pot = sum([player.total_bet for player in self.players.active])
+        while pot > 0:
+            winners = get_winners(
+                [player for player in self.players.active if player.total_bet >
+                    0 and not player in self.folded_players],
+                self.community,
+            )
+            min_bet = min(
+                [
+                    player.total_bet
+                    for player in self.players.active
+                    if player.total_bet > 0
+                ]
+            )
+            pot_to_assign = min_bet * len(
+                [
+                    player
+                    for player in self.players.active
+                    if player.total_bet >= min_bet
+                ]
+            )
+            amount = math.ceil(pot_to_assign / len(winners))
+
+            for winner in winners:
+                winner.chips += amount
+
+            pot -= pot_to_assign
+
+            for player in self.players.active:
+                if player.total_bet >= min_bet:
+                    player.total_bet -= min_bet
+
+        self.players.remove_losers()
 
     def _deal(self):
         self.deck.shuffle()
@@ -87,71 +117,81 @@ class Play:
             next_player = self.players.next_to(next_player)
 
     def _pay(self, player: Player, amount: int):
-        real_amount = min(amount, player.chips)
-        player.chips -= real_amount
-        self.pot += real_amount
-        player.bet = real_amount
+        player.chips -= amount
+        player.round_bet += amount
+        player.total_bet += amount
 
     def _actions(self, player: Player):
         actions = [Action.Fold]
 
-        if player.bet == self.highest_round_bet:
+        if player.round_bet == self.highest_round_bet:
             actions.append(Action.Check)
         else:
             actions.append(Action.Call)
 
         # improve this function
-        if player.chips > 0:
+        if player.chips > self.highest_round_bet:
             actions.append(Action.BetOrRaise)
 
         return actions
 
     def _bet(self, player: Player):
-        if player.chips < self.highest_round_bet:
-            raise ValueError("Cant bet!")
-        player.chips -= self.highest_round_bet - player.bet
-        player.bet = self.highest_round_bet
+        amount_to_call = self.highest_round_bet - player.round_bet
+        new_bet = int(input("Insert your bet: "))
 
-        bet = int(input("Insert your bet: "))
-
-        while bet < self.min_allowed_bet or bet > player.chips:
+        while new_bet < self.min_allowed_bet or new_bet > player.chips - amount_to_call:
             # raise ValueError('Can\t bet this amount.')
-            bet = int(input("Insert your bet: "))
+            new_bet = int(input("Insert your bet: "))
+            if new_bet == player.chips - amount_to_call:  # all-in
+                break
 
-        self.min_allowed_bet = bet
-        player.bet += bet
-        self.highest_round_bet = player.bet
-        self._pay(player, bet)
+        # first of all player calls
+        self._pay(player, amount_to_call)
+
+        self.min_allowed_bet = max(self.min_allowed_bet, new_bet)
+        self._pay(player, new_bet)
+        self.highest_round_bet = player.round_bet
 
     def _run_round(self, round: Round):
         player = self.players.next_to(self.dealer)
         last_player = self.players.first_active_from_backwards(self.dealer)
-        last_better = None
+        last_better = None  # blinds are treated as exceptions
 
         if round == Round.PreFlop:
             player = self.players.next_to(self.big_blind)
             last_player = self.big_blind
 
         while True:
-            if player in self.folded_players:
+
+            players_with_actions = [
+                player for player in self.players.active if player not in self.folded_players and player.chips > 0]
+            if not players_with_actions or (len(players_with_actions) == 1 and players_with_actions[0].round_bet == self.highest_round_bet):
+                break
+
+            if player in self.folded_players or player.chips == 0:
                 player = self.players.next_to(player)
                 continue
 
             if player == last_better:
                 break
 
-            print(player.name, player.hand.cards[0], player.hand.cards[1], player.chips)
+            print(player.name, player.hand.cards[0],
+                  player.hand.cards[1], player.chips)
 
             actions = self._actions(player)
             print(actions)
             idx_action = int(input("Select an action:"))
+
             action = actions[idx_action]
 
             if action == Action.Fold:
                 self.folded_players.add(player)
 
             elif action == Action.Call:
-                self._pay(player, self.highest_round_bet - player.bet)
+                self._pay(
+                    player, min(
+                        player.chips, self.highest_round_bet - player.round_bet)
+                )
 
             elif action == Action.BetOrRaise:
                 last_better = player
@@ -166,5 +206,6 @@ class Play:
 
 
 game = Game(4, ["Brooks", "John", "Leo", "Lisa"])
-print(game.dealer.name, game.players.next_to(game.dealer).name, game.players.active)
+print(game.dealer.name, game.players.next_to(
+    game.dealer).name, game.players.active)
 game.loop()

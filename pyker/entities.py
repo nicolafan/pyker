@@ -127,7 +127,8 @@ class Player:
         self.name = name
         self.chips = chips
         self.hand = None
-        self.bet = 0
+        self.round_bet = 0
+        self.total_bet = 0
 
 
 class Players:
@@ -144,10 +145,13 @@ class Players:
     def get_n_active(self):
         return len(self.active)
 
-    def remove_loser(self, player: Player):
-        self.active.remove(player)
+    def remove_losers(self):
+        self.active = [player for player in self.active if player.chips > 0]
 
     def next_to(self, player: Player):
+        if self.get_n_starting() <= 1:
+            raise ValueError("Invalid number of active players (the game ended or it's invalid).")
+
         idx = self.starting.index(player)
         n_checked = 1
 
@@ -156,10 +160,6 @@ class Players:
             idx %= self.get_n_starting()
             possible_next_player = self.starting[idx]
             if self.is_active(possible_next_player):
-                if possible_next_player == player:
-                    raise ValueError(
-                        "Only one player left in the game. The game has already ended."
-                    )
                 return possible_next_player
             n_checked += 1
 
@@ -199,6 +199,6 @@ class Players:
             return player
         return self.previous_than(player)
 
-    def reset_bets(self):
+    def reset_round_bets(self):
         for player in self.active:
-            player.bet = 0
+            player.round_bet = 0
