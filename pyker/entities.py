@@ -33,11 +33,12 @@ class Action(enum.Enum):
     Fold = enum.auto()
 
 
-class Round(enum.Enum):
-    PreFlop = enum.auto()
-    Flop = enum.auto()
-    Turn = enum.auto()
-    River = enum.auto()
+class Round(enum.IntEnum):
+    PreFlop = 1
+    Flop = 2
+    Turn = 3
+    River = 4
+    End = 5
 
 
 suit_names = {
@@ -78,6 +79,9 @@ class Card:
 
     def __str__(self):
         return str(self.rank) + " of " + suit_names[self.suit]
+
+    def code(self):
+        return self.rank.name[1:] + self.suit.name[0]
 
     def compare_to_by_rank(self, other):
         comparison = 1

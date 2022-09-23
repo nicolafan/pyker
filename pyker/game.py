@@ -3,43 +3,21 @@ from pyker.entities import *
 from pyker.hands_checker import get_winners
 
 
-class Game:
-    def __init__(self, n_players, players_names):
-        if not 2 <= n_players <= 8:
-            raise ValueError("Unvalid number of players.")
-
-        players = [Player(name, 2000) for name in players_names]
-        self.players = Players(players)
-
-        # self.dealer = self.players.take_random()
-        self.dealer = players[0]
-        self.blinds_level = 0
-
-    def loop(self):
-        while self.players.get_n_active() > 1:
-            play = Play(self)
-            play.loop()
-            if self.players.get_n_active() > 1:
-                self.dealer = self.players.next_to(self.dealer)
-
-        print(f"The winner is {self.players.active[0].name}")
-
-
 class Play:
-    def __init__(self, game: Game):
-        self.game = game
-
+    def __init__(self, players, dealer, blinds_level):
         self.deck = Deck()
-        self.players = self.game.players
+        self.players = players
         self.folded_players = set()
-        self.dealer = self.game.dealer
+        self.round = Round.PreFlop
+        self.current_player = None
+        self.dealer = dealer
 
         self._deal()
 
         self.community = Community()
         # set bets
-        self.small_blind_bet = blinds_table[self.game.blinds_level]["small"]
-        self.big_blind_bet = blinds_table[self.game.blinds_level]["big"]
+        self.small_blind_bet = blinds_table[blinds_level]["small"]
+        self.big_blind_bet = blinds_table[blinds_level]["big"]
 
         # set blinds
         self.small_blind = self.players.next_to(self.dealer)
@@ -56,21 +34,7 @@ class Play:
         self.highest_round_bet = 0
         self.players.reset_round_bets()
 
-    def loop(self):
-        self._run_round(Round.PreFlop)
-        self.deck.deal_community_cards(self.community)
-        print(self.community.cards[0], self.community.cards[1], self.community.cards[2])
-        self._reset_round()
-        self._run_round(Round.Flop)
-        self.deck.deal_community_cards(self.community)
-        print(self.community.cards[3])
-        self._reset_round()
-        self._run_round(Round.Turn)
-        self.deck.deal_community_cards(self.community)
-        print(self.community.cards[4])
-        self._reset_round()
-        self._run_round(Round.River)
-
+    def end(self):
         # manage end play
         pot = sum([player.total_bet for player in self.players.active])
         while pot > 0:
@@ -154,63 +118,75 @@ class Play:
         self._pay(player, new_bet)
         self.highest_round_bet = player.round_bet
 
-    def _run_round(self, round: Round):
-        player = self.players.next_to(self.dealer)
-        last_player = self.players.first_active_from_backwards(self.dealer)
-        last_better = None  # blinds are treated as exceptions
+    def _init_round(self):
+        if self.round == Round.End:
+            self.end()
+            return
 
-        if round == Round.PreFlop:
-            player = self.players.next_to(self.big_blind)
-            last_player = self.big_blind
+        if self.round > Round.PreFlop:
+            self.deck.deal_community_cards(self.community)
+            for card in self.community.cards:
+                print(card)
 
-        while True:
+        self.current_player = self.players.next_to(self.dealer)
+        self.round_last_player = self.players.first_active_from_backwards(self.dealer)
+        self.round_last_better = None  # blind are treated as exceptions
 
-            players_with_actions = [
-                player
-                for player in self.players.active
-                if player not in self.folded_players and player.chips > 0
-            ]
-            if not players_with_actions or (
-                len(players_with_actions) == 1
-                and players_with_actions[0].round_bet == self.highest_round_bet
-            ):
-                break
+        if self.round == Round.PreFlop:
+            self.current_player = self.players.next_to(self.big_blind)
+            self.round_last_player = self.big_blind
 
-            if player in self.folded_players or player.chips == 0:
-                player = self.players.next_to(player)
-                continue
+    def execute_action(self, action: Action):
+        if action == Action.Fold:
+            self.folded_players.add(self.current_player)
+        elif action == Action.Call:
+            self._pay(
+                self.current_player,
+                min(
+                    self.current_player.chips,
+                    self.highest_round_bet - self.current_player.round_bet,
+                ),
+            )
+        elif action == Action.BetOrRaise:
+            self.round_last_better = self.current_player
+            self._bet(self.current_player)
 
-            if player == last_better:
-                break
+        if self.current_player == self.round_last_player:
+            self.current_player = None
+            self.round += 1
+        else:
+            self.current_player = self.players.next_to(self.current_player)
 
-            print(player.name, player.hand.cards[0], player.hand.cards[1], player.chips)
+    def take_turn_actions(self):
+        players_with_actions = [
+            player
+            for player in self.players.active
+            if player not in self.folded_players and player.chips > 0
+        ]
+        if not players_with_actions or (
+            len(players_with_actions) == 1
+            and players_with_actions[0].round_bet == self.highest_round_bet
+        ):
+            self.current_player = None
+            self.round += 1
+            return None
 
-            actions = self._actions(player)
-            print(actions)
-            idx_action = int(input("Select an action:"))
+        if self.current_player in self.folded_players or self.current_player.chips == 0:
+            self.current_player = self.players.next_to(self.current_player)
+            return None
 
-            action = actions[idx_action]
+        if self.current_player == self.round_last_better:
+            self.current_player = None
+            self.round += 1
+            return None
 
-            if action == Action.Fold:
-                self.folded_players.add(player)
+        print(
+            self.current_player.name,
+            self.current_player.hand.cards[0],
+            self.current_player.hand.cards[1],
+            self.current_player.chips,
+        )
 
-            elif action == Action.Call:
-                self._pay(
-                    player, min(player.chips, self.highest_round_bet - player.round_bet)
-                )
-
-            elif action == Action.BetOrRaise:
-                last_better = player
-                self._bet(player)
-
-            if last_better == None and player == last_player:
-                break
-
-            player = self.players.next_to(player)
-
-        print("END BETTING ROUND")
-
-
-game = Game(4, ["Brooks", "John", "Leo", "Lisa"])
-print(game.dealer.name, game.players.next_to(game.dealer).name, game.players.active)
-game.loop()
+        actions = self._actions(self.current_player)
+        print(actions)
+        return actions
