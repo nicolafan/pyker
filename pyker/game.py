@@ -59,8 +59,7 @@ class Play:
     def loop(self):
         self._run_round(Round.PreFlop)
         self.deck.deal_community_cards(self.community)
-        print(self.community.cards[0],
-              self.community.cards[1], self.community.cards[2])
+        print(self.community.cards[0], self.community.cards[1], self.community.cards[2])
         self._reset_round()
         self._run_round(Round.Flop)
         self.deck.deal_community_cards(self.community)
@@ -76,8 +75,11 @@ class Play:
         pot = sum([player.total_bet for player in self.players.active])
         while pot > 0:
             winners = get_winners(
-                [player for player in self.players.active if player.total_bet >
-                    0 and not player in self.folded_players],
+                [
+                    player
+                    for player in self.players.active
+                    if player.total_bet > 0 and not player in self.folded_players
+                ],
                 self.community,
             )
             min_bet = min(
@@ -164,8 +166,14 @@ class Play:
         while True:
 
             players_with_actions = [
-                player for player in self.players.active if player not in self.folded_players and player.chips > 0]
-            if not players_with_actions or (len(players_with_actions) == 1 and players_with_actions[0].round_bet == self.highest_round_bet):
+                player
+                for player in self.players.active
+                if player not in self.folded_players and player.chips > 0
+            ]
+            if not players_with_actions or (
+                len(players_with_actions) == 1
+                and players_with_actions[0].round_bet == self.highest_round_bet
+            ):
                 break
 
             if player in self.folded_players or player.chips == 0:
@@ -175,8 +183,7 @@ class Play:
             if player == last_better:
                 break
 
-            print(player.name, player.hand.cards[0],
-                  player.hand.cards[1], player.chips)
+            print(player.name, player.hand.cards[0], player.hand.cards[1], player.chips)
 
             actions = self._actions(player)
             print(actions)
@@ -189,8 +196,7 @@ class Play:
 
             elif action == Action.Call:
                 self._pay(
-                    player, min(
-                        player.chips, self.highest_round_bet - player.round_bet)
+                    player, min(player.chips, self.highest_round_bet - player.round_bet)
                 )
 
             elif action == Action.BetOrRaise:
@@ -206,6 +212,5 @@ class Play:
 
 
 game = Game(4, ["Brooks", "John", "Leo", "Lisa"])
-print(game.dealer.name, game.players.next_to(
-    game.dealer).name, game.players.active)
+print(game.dealer.name, game.players.next_to(game.dealer).name, game.players.active)
 game.loop()

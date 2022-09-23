@@ -150,7 +150,9 @@ class Players:
 
     def next_to(self, player: Player):
         if self.get_n_starting() <= 1:
-            raise ValueError("Invalid number of active players (the game ended or it's invalid).")
+            raise ValueError(
+                "Invalid number of active players (the game ended or it's invalid)."
+            )
 
         idx = self.starting.index(player)
         n_checked = 1
