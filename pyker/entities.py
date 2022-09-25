@@ -80,6 +80,9 @@ class Card:
     def __str__(self):
         return str(self.rank) + " of " + suit_names[self.suit]
 
+    def __hash__(self):
+        return hash(repr(self))
+
     def code(self):
         return self.rank.name[1:] + self.suit.name[0]
 

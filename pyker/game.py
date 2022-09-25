@@ -1,5 +1,5 @@
 import math
-from pyker.models import *
+from pyker.entities import *
 from pyker.hands_checker import get_winners
 
 
