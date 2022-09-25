@@ -1,5 +1,5 @@
 import math
-from pyker.entities import *
+from pyker.models import *
 from pyker.hands_checker import get_winners
 
 
@@ -72,6 +72,7 @@ class Play:
                     player.total_bet -= min_bet
 
         self.players.remove_losers()
+        self.round += 1
 
     def _deal(self):
         self.deck.shuffle()
@@ -153,6 +154,7 @@ class Play:
 
         if self.current_player == self.round_last_player:
             self.current_player = None
+            self._reset_round()
             self.round += 1
         else:
             self.current_player = self.players.next_to(self.current_player)
