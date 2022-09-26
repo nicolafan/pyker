@@ -70,6 +70,14 @@ class Card:
         return self.suit == other.suit and self.rank == other.rank
 
     def __lt__(self, other):
+        """Compare two cards for deck ordering
+
+        Args:
+            other (Card): The card to compare
+
+        Returns:
+            bool: True if self comes before other, False otherwise
+        """
         if self.rank < other.rank:
             return True
         if self.rank == other.rank:
@@ -84,9 +92,15 @@ class Card:
         return hash(repr(self))
 
     def code(self):
+        """Return a string code for the current card
+        """
         return self.rank.name[1:] + self.suit.name[0]
 
     def compare_to_by_rank(self, other):
+        """Card comparison by in-game value
+        
+        Card comparison according to Poker rules: suit doesn't count.
+        """
         comparison = 1
 
         if self.rank > other.rank:
@@ -98,16 +112,22 @@ class Card:
 
 
 class Hand:
+    """A hand given to a player consisting of two cards
+    """
     def __init__(self, cards: list[Card]):
         self.cards = cards
 
 
 class Community:
+    """Community cards of a single play
+    """
     def __init__(self):
         self.cards = []
 
 
 class Deck:
+    """Deck of cards
+    """
     def __init__(self):
         self.cards = [Card(suit, rank) for rank in Rank for suit in Suit]
 
@@ -118,9 +138,19 @@ class Deck:
         return self.cards.pop(0)
 
     def deal_hand(self):
+        """Return a hand consisting of two cards
+        """
         return Hand([self.pop(), self.pop()])
 
     def deal_community_cards(self, community: Community):
+        """Add community cards to the community object
+        
+        The method understands how many cards to deal based on the number
+        of cards already dealt.
+
+        Args:
+            community (Community): Container of community cards
+        """
         if community.cards:
             # deal turn or river
             community.cards.append(self.pop())
@@ -130,18 +160,32 @@ class Deck:
 
 
 class Player:
+    """Player of the game
+    """
     def __init__(self, name: string, chips: int):
         self.name = name
         self.chips = chips
+        self.hand = None  # current hand
+        self.round_bet = 0  # current bet (round)
+        self.total_bet = 0  # sum of the bets in a single play
+        
+    def reset_for_round(self):
+        self.round_bet = 0
+        
+    def reset_for_play(self):
+        """Reset player for the start of a new play
+        """
         self.hand = None
         self.round_bet = 0
         self.total_bet = 0
 
 
 class Players:
+    """Class for managing the collection of players of the game
+    """
     def __init__(self, players: list[Player]):
-        self.starting = players
-        self.active = players.copy()
+        self.starting = players  # starting players (immutable)
+        self.active = players.copy()  # active players (players who haven't lost)
 
     def is_active(self, player: Player):
         return player in self.active
@@ -156,11 +200,17 @@ class Players:
         self.active = [player for player in self.active if player.chips > 0]
 
     def next_to(self, player: Player):
-        if self.get_n_starting() <= 1:
-            raise ValueError(
-                "Invalid number of active players (the game ended or it's invalid)."
-            )
+        """Return player after the player obtained as parameter
 
+        Args:
+            player (Player): A player of the game
+
+        Raises:
+            ValueError: If the player parameter is not present in the players of the game
+
+        Returns:
+            Player: The player next to the player obtained as parameter
+        """
         idx = self.starting.index(player)
         n_checked = 1
 
@@ -175,6 +225,17 @@ class Players:
         raise ValueError("The player was not among the players of this game.")
 
     def previous_than(self, player: Player):
+        """Return player before the player obtained as parameter
+
+        Args:
+            player (Player): A player of the game
+
+        Raises:
+            ValueError: If the player parameter is not present in the players of the game
+
+        Returns:
+            Player: The player before the player obtained as parameter
+        """
         idx = self.starting.index(player)
         n_checked = 0
 
@@ -185,29 +246,44 @@ class Players:
             idx %= self.get_n_starting()
             possible_previous_player = self.starting[idx]
             if self.is_active(possible_previous_player):
-                if possible_previous_player == player:
-                    raise ValueError(
-                        "Only one player left in the game. The game has already ended."
-                    )
                 return possible_previous_player
             n_checked += 1
 
         raise ValueError("The player was not among the players of this game.")
 
     def take_random(self):
+        """Return a random player
+
+        Returns:
+            Player: A random player
+        """
         idx = random.randint(0, self.get_n_active() - 1)
         return self.active[idx]
 
     def first_active_from(self, player: Player):
+        """Return first active player after player (included)
+
+        Args:
+            player (Player): Starting player
+        """
         if self.is_active(player):
             return player
         return self.next_to(player)
 
     def first_active_from_backwards(self, player: Player):
+        """Return first active player before player (included)
+
+        Args:
+            player (Player): Starting player
+        """
         if self.is_active(player):
             return player
         return self.previous_than(player)
 
-    def reset_round_bets(self):
+    def reset_for_round(self):
         for player in self.active:
             player.round_bet = 0
+            
+    def reset_for_play(self):
+        for player in self.active:
+            player.reset_for_play()

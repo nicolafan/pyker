@@ -1,4 +1,4 @@
-from pyker.entities import *
+from pyker.models import *
 
 C = Suit.Clubs
 D = Suit.Diamonds

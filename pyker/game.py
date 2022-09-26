@@ -1,5 +1,5 @@
 import math
-from pyker.entities import *
+from pyker.models import *
 from pyker.hands_checker import get_winners
 
 
@@ -32,7 +32,7 @@ class Play:
     def _reset_round(self):
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = 0
-        self.players.reset_round_bets()
+        self.players.reset_for_round()
 
     def end(self):
         # manage end play

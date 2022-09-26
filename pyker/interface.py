@@ -3,7 +3,7 @@ import os
 
 import pygame
 from pyker.game import Play
-from pyker.entities import *
+from pyker.models import *
 
 from pathlib import Path
 
