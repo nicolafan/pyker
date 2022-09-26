@@ -5,13 +5,17 @@ import pygame
 from pyker.game import Play
 from pyker.entities import *
 
-
+from pathlib import Path
 
 WIDTH, HEIGHT = 1280, 720
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pyker - Poker Texas Hold'em")
 
-COLORS = {"BORDEAUX": (90, 0, 44)}
+COLORS = {
+    "BORDEAUX": (90, 0, 44),
+    "WHITE": (255, 255, 255),
+    "GRAY_BG": (128, 128, 128, 1)
+    }
 
 FPS = 60
 
@@ -23,6 +27,8 @@ BUTTONS_Y = 650
 
 ROWS = 7
 COLS = 5
+
+FONT = None
 
 PLAYERS_CELLS = {
     2: [(5, 2), (1, 2)],
@@ -45,17 +51,23 @@ CELLS_ORIENTATIONS = {
     (5, 3): 0,
 }
 
+CELL_WIDTH = WIDTH / 5
+CELL_HEIGHT = HEIGHT / 7
+
 CARDS_SPRITES = {}
 BUTTONS_SPRITES = {}
 
 CARDS = {}
 BUTTONS = {}
+NAMES = []
+CHIPS = []
 
 
-def load_sprites():
+def load_assets():
     assets_dir = "assets"
-    assets_cards_dir = os.path.join(assets_dir, "cards")
-    assets_buttons_dir = os.path.join(assets_dir, "buttons")
+    assets_cards_dir = Path(os.path.join(assets_dir, "cards"))
+    assets_buttons_dir = Path(os.path.join(assets_dir, "buttons"))
+    assets_fonts_dir = Path(os.path.join(assets_dir, "fonts"))
 
     for filename in os.listdir(assets_cards_dir):
         card_name = filename[:-4]
@@ -74,6 +86,9 @@ def load_sprites():
         )
         BUTTONS_SPRITES[button_name] = button_sprite
 
+    pygame.font.init()
+    global FONT
+    FONT = pygame.font.Font(os.path.join(assets_fonts_dir, "PixeloidMono-1G8ae.ttf"), 16)
 
 class CardGUI:
     def __init__(self, x, y, orientation, covered, card: Card):
@@ -116,12 +131,24 @@ class ButtonGUI:
         return action
 
 
+class TextGUI:
+    def __init__(self, x, y, orientation, text):
+        self.text = FONT.render(text, True, COLORS["WHITE"])
+        self.text = pygame.transform.rotate(self.text, orientation)
+        self.rect = self.text.get_rect()
+        self.rect.left = x
+        self.rect.bottom = y
+    
+    def draw(self):
+        WIN.blit(self.text, self.rect)
+
+
 class Game:
     def __init__(self, n_players, players_names):
         if not 2 <= n_players <= 8:
             raise ValueError("Unvalid number of players.")
 
-        load_sprites()
+        load_assets()
 
         self.n_players = n_players
         players = [Player(name, 2000) for name in players_names]
@@ -139,57 +166,6 @@ class Game:
         CARDS.clear()
         BUTTONS.clear()
         self.dealer = self.players.next_to(self.dealer)
-
-    def draw_players_cards(self):
-        if self.play is None:
-            return
-        for i, player in enumerate(self.players.starting):
-            if player.hand is not None:
-                player_cell = PLAYERS_CELLS[self.n_players][i]
-
-                x = WIDTH / COLS * player_cell[1] + CARD_X_OFFSET
-                y = HEIGHT / ROWS * player_cell[0] + CARD_Y_OFFSET
-
-                local_offset_x = 0
-                local_offset_y = 0
-                for card in player.hand.cards:
-                    orientation = CELLS_ORIENTATIONS[player_cell]
-                    card_game = Card(
-                        x + local_offset_x, y + local_offset_y, orientation, card
-                    )
-                    card_game.draw()
-
-                    if orientation == 270 or orientation == 90:
-                        local_offset_y += card_game.image.get_height() + 4
-                    else:
-                        local_offset_x += card_game.image.get_width() + 4
-
-    def draw_community_cards(self):
-        if self.play is None:
-            return
-        offset_x = 0
-        x, y = 449, 313
-
-        for card in self.play.community.cards:
-            card_game = Card(x + offset_x, y, 0, card)
-            card_game.draw()
-            offset_x += card_game.image.get_width() + 8
-
-    def draw_buttons(self):
-        if not self.is_interactive:
-            return
-        self.available_actions.sort()
-        x, y = LAST_BUTTON_X, BUTTONS_Y
-        offset_x = 16
-
-        for action in reversed(self.available_actions):
-            button = ButtonGUI(x, y, action)
-            button.rect.left -= offset_x + button.image.get_width()
-            if button.draw():
-                self.play.execute_action(action)
-                self.is_interactive = False
-
-            offset_x += button.image.get_width() + 16
 
     def build_buttons(self):
         x, y = LAST_BUTTON_X, BUTTONS_Y
@@ -232,11 +208,39 @@ class Game:
             CARDS[card] = card_gui
             offset_x += card_gui.image.get_width() + 8
 
+    def build_players_names(self):
+        for i, player in enumerate(self.players.starting):
+            player_cell = PLAYERS_CELLS[self.n_players][i]
+            x = WIDTH / COLS * player_cell[1]
+            y = HEIGHT / ROWS * player_cell[0]
+
+            y += CELL_HEIGHT
+
+            t = TextGUI(x, y, 90, player.name)
+            NAMES.append(t)
+
+    def build_players_chips(self):
+        CHIPS.clear()
+        for i, player in enumerate(self.players.starting):
+            player_cell = PLAYERS_CELLS[self.n_players][i]
+            x = WIDTH / COLS * player_cell[1]
+            y = HEIGHT / ROWS * player_cell[0]
+
+            y += CELL_HEIGHT - 60
+
+            t = TextGUI(x, y, 90, str(player.chips))
+            CHIPS.append(t)
+
+
     def draw_window(self):
         WIN.fill(COLORS["BORDEAUX"])
 
         for card in CARDS.values():
             card.draw()
+        for name in NAMES:
+            name.draw()
+        for chips in CHIPS:
+            chips.draw()
         if self.is_interactive:
             for action in self.available_actions:
                 if BUTTONS[action].draw():
@@ -262,12 +266,14 @@ class Game:
                 if self.play is None:
                     self.play = Play(self.players, self.dealer, self.blinds_level)
                     self.build_buttons()
+                    self.build_players_names()
                     self.build_players_cards()
                 if self.play.current_player is None:
                     if self.play.round > Round.End:
                         self.play = None
                         self.reset()
                     else:
+                        self.build_players_chips()
                         self.play._init_round()
                         self.build_new_community_cards()
                 else:

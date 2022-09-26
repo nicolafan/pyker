@@ -131,6 +131,9 @@ class Play:
 
         self.current_player = self.players.next_to(self.dealer)
         self.round_last_player = self.players.first_active_from_backwards(self.dealer)
+        while self.round_last_player in self.folded_players:
+            print(self.folded_players)
+            self.round_last_player = self.players.previous_than(self.round_last_player)
         self.round_last_better = None  # blind are treated as exceptions
 
         if self.round == Round.PreFlop:
@@ -152,7 +155,8 @@ class Play:
             self.round_last_better = self.current_player
             self._bet(self.current_player)
 
-        if self.current_player == self.round_last_player:
+        if self.current_player is self.round_last_player:
+            print("ehi")
             self.current_player = None
             self._reset_round()
             self.round += 1
