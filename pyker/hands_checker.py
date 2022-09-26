@@ -21,7 +21,7 @@ class HandComparison(enum.IntEnum):
     Win = 1
 
 
-def _get_n_higher_cards(cards: list[Card], n: int):
+def __get_n_higher_cards(cards: list[Card], n: int):
     cards.sort()
 
     for rank in Rank:
@@ -91,7 +91,7 @@ def check_four_of_a_kind(hand: Hand, community: Community):
             # find the kicker
             four_of_a_kind.sort()
             remaining_cards = [card for card in cards if not card in four_of_a_kind]
-            kicker = _get_n_higher_cards(remaining_cards, 1)
+            kicker = __get_n_higher_cards(remaining_cards, 1)
             four_of_a_kind += kicker
             return four_of_a_kind
 
@@ -175,7 +175,7 @@ def check_three_of_a_kind(hand: Hand, community: Community):
         if len(poss_tris) >= 3:
             poss_tris = poss_tris[:3]
             remaining_cards = [card for card in cards if card not in poss_tris]
-            kickers = _get_n_higher_cards(remaining_cards, 2)
+            kickers = __get_n_higher_cards(remaining_cards, 2)
             tris = poss_tris + kickers
 
     return tris
@@ -200,7 +200,7 @@ def check_two_pair(hand: Hand, community: Community):
         return None
 
     remaining_cards = [card for card in cards if not card in two_pair]
-    kicker = _get_n_higher_cards(remaining_cards, 1)
+    kicker = __get_n_higher_cards(remaining_cards, 1)
     two_pair += kicker
 
     return two_pair
@@ -220,7 +220,7 @@ def check_one_pair(hand: Hand, community: Community):
         return None
 
     remaining_cards = [card for card in cards if not card in one_pair]
-    kickers = _get_n_higher_cards(remaining_cards, 3)
+    kickers = __get_n_higher_cards(remaining_cards, 3)
     one_pair = one_pair + kickers
 
     return one_pair
@@ -228,7 +228,7 @@ def check_one_pair(hand: Hand, community: Community):
 
 def check_high_card(hand: Hand, community: Community):
     cards = hand.cards + community.cards
-    return _get_n_higher_cards(cards, 5)
+    return __get_n_higher_cards(cards, 5)
 
 
 hands_checkers_dict = {

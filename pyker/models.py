@@ -31,6 +31,16 @@ class Action(enum.Enum):
     Call = enum.auto()
     Check = enum.auto()
     Fold = enum.auto()
+    
+    def __str__(self):
+        action_str_dict = {
+            Action.BetOrRaise: "bet",
+            Action.Call: "call",
+            Action.Check: "check",
+            Action.Fold: "fold"
+        }
+        
+        return action_str_dict[self]
 
 
 class Round(enum.IntEnum):

@@ -1,11 +1,11 @@
-import enum
 import os
+from pathlib import Path
 
 import pygame
+
 from pyker.game import Play
 from pyker.models import *
-
-from pathlib import Path
+from pyker.gui.components import *
 
 WIDTH, HEIGHT = 1280, 720
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -15,7 +15,7 @@ COLORS = {
     "BORDEAUX": (90, 0, 44),
     "WHITE": (255, 255, 255),
     "GRAY_BG": (128, 128, 128, 1)
-    }
+}
 
 FPS = 60
 
@@ -27,8 +27,6 @@ BUTTONS_Y = 650
 
 ROWS = 7
 COLS = 5
-
-FONT = None
 
 PLAYERS_CELLS = {
     2: [(5, 2), (1, 2)],
@@ -54,112 +52,24 @@ CELLS_ORIENTATIONS = {
 CELL_WIDTH = WIDTH / 5
 CELL_HEIGHT = HEIGHT / 7
 
-CARDS_SPRITES = {}
-BUTTONS_SPRITES = {}
-
 CARDS = {}
 BUTTONS = {}
 NAMES = []
 CHIPS = []
-
-
-def load_assets():
-    assets_dir = "assets"
-    assets_cards_dir = Path(os.path.join(assets_dir, "cards"))
-    assets_buttons_dir = Path(os.path.join(assets_dir, "buttons"))
-    assets_fonts_dir = Path(os.path.join(assets_dir, "fonts"))
-
-    for filename in os.listdir(assets_cards_dir):
-        card_name = filename[:-4]
-        card_sprite = pygame.image.load(os.path.join(assets_cards_dir, filename))
-        card_sprite = pygame.transform.scale(
-            card_sprite, (card_sprite.get_width() * 2, card_sprite.get_height() * 2)
-        )
-        CARDS_SPRITES[card_name] = card_sprite
-
-    for filename in os.listdir(assets_buttons_dir):
-        button_name = filename[:-4]
-        button_sprite = pygame.image.load(os.path.join(assets_buttons_dir, filename))
-        button_sprite = pygame.transform.scale(
-            button_sprite,
-            (button_sprite.get_width() * 4, button_sprite.get_height() * 4),
-        )
-        BUTTONS_SPRITES[button_name] = button_sprite
-
-    pygame.font.init()
-    global FONT
-    FONT = pygame.font.Font(os.path.join(assets_fonts_dir, "PixeloidMono-1G8ae.ttf"), 16)
-
-class CardGUI:
-    def __init__(self, x, y, orientation, covered, card: Card):
-        self.image = pygame.transform.rotate(CARDS_SPRITES[card.code()], orientation)
-        self.rect = self.image.get_rect()
-        self.rect.topleft = (x, y)
-
-        self.covered = False
-
-    def draw(self):
-        WIN.blit(self.image, (self.rect.x, self.rect.y))
-
-
-class ButtonGUI:
-    def __init__(self, x, y, action: Action):
-        d = {
-            Action.BetOrRaise: "bet",
-            Action.Call: "call",
-            Action.Check: "check",
-            Action.Fold: "fold",
-        }
-        self.image = BUTTONS_SPRITES[d[action]]
-        self.rect = self.image.get_rect()
-        self.rect.topleft = (x, y)
-        self.clicked = False
-
-    def draw(self):
-        action = False
-        pos = pygame.mouse.get_pos()
-
-        if self.rect.collidepoint(pos):
-            if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
-                self.clicked = True
-                action = True
-
-        if pygame.mouse.get_pressed()[0] == 0:
-            self.clicked = False
-
-        WIN.blit(self.image, (self.rect.x, self.rect.y))
-        return action
-
-
-class TextGUI:
-    def __init__(self, x, y, orientation, text):
-        self.text = FONT.render(text, True, COLORS["WHITE"])
-        self.text = pygame.transform.rotate(self.text, orientation)
-        self.rect = self.text.get_rect()
-        self.rect.left = x
-        self.rect.bottom = y
-    
-    def draw(self):
-        WIN.blit(self.text, self.rect)
-
-
 class Game:
-    def __init__(self, n_players, players_names):
-        if not 2 <= n_players <= 8:
+    def __init__(self, players_names):
+        if not 2 <= len(players_names) <= 8:
             raise ValueError("Unvalid number of players.")
 
-        load_assets()
-
-        self.n_players = n_players
+        self.n_players = len(players_names)
         players = [Player(name, 2000) for name in players_names]
         self.players = Players(players)
 
-        # self.dealer = self.players.take_random()
-        self.play = None
-        self.dealer = players[0]
-        self.blinds_level = 0
+        self.play = None  # the current play
+        self.dealer = players[0]  # keep track of the dealer
+        self.blinds_level = 0  # keep track of the blinds level
 
-        self.is_interactive = False
+        self.is_interactive = False  # waiting for the action
         self.available_actions = None
 
     def reset(self):
@@ -172,7 +82,7 @@ class Game:
         offset_x = 16
 
         for action in Action:
-            button = ButtonGUI(x, y, action)
+            button = ButtonGUI(WIN, action, topleft=(x, y))
             button.rect.left -= offset_x + button.image.get_width()
             offset_x += button.image.get_width() + 16
             BUTTONS[action] = button
@@ -190,7 +100,7 @@ class Game:
                 for card in player.hand.cards:
                     orientation = CELLS_ORIENTATIONS[player_cell]
                     card_gui = CardGUI(
-                        x + local_offset_x, y + local_offset_y, orientation, False, card
+                        WIN, card, topleft=(x + local_offset_x, y + local_offset_y), angle=orientation
                     )
                     CARDS[card] = card_gui
 
@@ -204,7 +114,7 @@ class Game:
         x, y = 449, 313
 
         for card in self.play.community.cards:
-            card_gui = CardGUI(x + offset_x, y, 0, False, card)
+            card_gui = CardGUI(WIN, card, topleft=(x + offset_x, y))
             CARDS[card] = card_gui
             offset_x += card_gui.image.get_width() + 8
 
@@ -216,7 +126,7 @@ class Game:
 
             y += CELL_HEIGHT
 
-            t = TextGUI(x, y, 90, player.name)
+            t = TextGUI(WIN, player.name, topleft=(x, y), angle=90, size=FontSize.Medium)
             NAMES.append(t)
 
     def build_players_chips(self):
@@ -228,7 +138,7 @@ class Game:
 
             y += CELL_HEIGHT - 60
 
-            t = TextGUI(x, y, 90, str(player.chips))
+            t = TextGUI(WIN, str(player.chips), topleft=(x, y), angle=90, size=FontSize.Medium)
             CHIPS.append(t)
 
 
@@ -263,21 +173,21 @@ class Game:
                     if event.type == pygame.QUIT:
                         run = False
             else:
-                if self.play is None:
+                if self.play is None:  # start new play
                     self.play = Play(self.players, self.dealer, self.blinds_level)
                     self.build_buttons()
                     self.build_players_names()
                     self.build_players_cards()
-                if self.play.current_player is None:
-                    if self.play.current_round > Round.End:
+                if self.play.current_player is None:  # round ended
+                    if self.play.current_round > Round.End:  # play ended
                         self.play = None
                         self.reset()
                     else:
-                        self.build_players_chips()
+                        self.build_players_chips()  # start new round
                         self.play.init_round()
                         self.build_new_community_cards()
                 else:
-                    self.available_actions = self.play.take_turn()
+                    self.available_actions = self.play.take_turn()  # action!
                     if self.available_actions is not None:
                         self.is_interactive = True
 
@@ -289,7 +199,6 @@ class Game:
 
 
 if __name__ == "__main__":
-    n = 4
     players = ["John", "Lucy", "Carl", "Mark"]#, "Hannah", "Mike", "Lana", "Phil"]
-    game = Game(n, players)
+    game = Game(players)
     game.loop()
