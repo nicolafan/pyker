@@ -269,15 +269,15 @@ class Game:
                     self.build_players_names()
                     self.build_players_cards()
                 if self.play.current_player is None:
-                    if self.play.round > Round.End:
+                    if self.play.current_round > Round.End:
                         self.play = None
                         self.reset()
                     else:
                         self.build_players_chips()
-                        self.play._init_round()
+                        self.play.init_round()
                         self.build_new_community_cards()
                 else:
-                    self.available_actions = self.play.take_turn_actions()
+                    self.available_actions = self.play.take_turn()
                     if self.available_actions is not None:
                         self.is_interactive = True
 
