@@ -6,23 +6,24 @@ from pyker.models import *
 
 class Play:
     """Class for play managament
-    
+
     Most important class for playing the game.
     It deals with a single play: from dealing to assign winners' chips.
     """
-    def __init__(self, players, dealer, blinds_level):        
+
+    def __init__(self, players, dealer, blinds_level):
         self.players = players
         self.folded_players = set()  # players who folded during the play
-        
+
         self.current_round = Round.PreFlop
         self.current_player = None
-        
+
         # dealings
         self.deck = Deck()  # new complete deck of cards
         self.dealer = dealer
         self.__deal()
         self.community = Community()
-        
+
         # set blinds and their bets
         self.small_blind_player = self.players.next_to(self.dealer)
         self.big_blind_player = self.players.next_to(self.small_blind_player)
@@ -30,13 +31,20 @@ class Play:
         self.big_blind_bet = blinds_table[blinds_level]["big"]
 
         # blinds bet
-        self.__pay(self.small_blind_player, min(self.small_blind_bet, self.small_blind_player.chips))
-        self.__pay(self.big_blind_player, min(self.big_blind_bet, self.big_blind_player.chips))
-        
+        self.__pay(
+            self.small_blind_player,
+            min(self.small_blind_bet, self.small_blind_player.chips),
+        )
+        self.__pay(
+            self.big_blind_player, min(self.big_blind_bet, self.big_blind_player.chips)
+        )
+
         # manage round bets
         self.min_allowed_bet = self.big_blind_bet  # min amount to bet or raise
-        self.highest_round_bet = self.big_blind_bet  # amount to call to go on to next round
-        
+        self.highest_round_bet = (
+            self.big_blind_bet
+        )  # amount to call to go on to next round
+
     def init_round(self):
         if self.current_round == Round.End:
             self.end()
@@ -58,8 +66,7 @@ class Play:
             self.round_last_player = self.big_blind_player
 
     def __reset_for_round(self):
-        """Operations to perform after ending a round
-        """
+        """Operations to perform after ending a round"""
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = 0
         self.players.reset_for_round()
@@ -67,23 +74,24 @@ class Play:
     def end(self):
         # manage end play
         pot = sum([player.total_bet for player in self.players.active])
-        
+
         # distribute the entire pot
         while pot > 0:
             ending_players = [
                 player
                 for player in self.players.active
-                if player.total_bet > 0 and not player in self.folded_players  # not sure about first check
+                if player.total_bet > 0
+                and not player in self.folded_players  # not sure about first check
             ]
             winners = get_winners(ending_players, self.community)
-            
+
             bets = [
                 player.total_bet
                 for player in self.players.active
                 if player.total_bet > 0
             ]
             min_bet = min(bets)
-            
+
             pot_to_assign = min_bet * len(ending_players)
             pot_to_assing_by_player = math.ceil(pot_to_assign / len(winners))
 
@@ -174,7 +182,7 @@ class Play:
 
         Checks which actions are available to the current player.
         If no actions are available returns None and manages access to the next round.
-        
+
         Returns:
             [Action]: A list of actions available for the current player
         """
@@ -184,7 +192,7 @@ class Play:
             for player in self.players.active
             if player not in self.folded_players and player.chips > 0
         ]
-        
+
         # if no players has available actions or there's only one and already called go to next round
         if not players_with_actions or (
             len(players_with_actions) == 1

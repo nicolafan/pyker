@@ -31,15 +31,15 @@ class Action(enum.Enum):
     Call = enum.auto()
     Check = enum.auto()
     Fold = enum.auto()
-    
+
     def __str__(self):
         action_str_dict = {
             Action.BetOrRaise: "bet",
             Action.Call: "call",
             Action.Check: "check",
-            Action.Fold: "fold"
+            Action.Fold: "fold",
         }
-        
+
         return action_str_dict[self]
 
 
@@ -102,13 +102,12 @@ class Card:
         return hash(repr(self))
 
     def code(self):
-        """Return a string code for the current card
-        """
+        """Return a string code for the current card"""
         return self.rank.name[1:] + self.suit.name[0]
 
     def compare_to_by_rank(self, other):
         """Card comparison by in-game value
-        
+
         Card comparison according to Poker rules: suit doesn't count.
         """
         comparison = 1
@@ -122,22 +121,22 @@ class Card:
 
 
 class Hand:
-    """A hand given to a player consisting of two cards
-    """
+    """A hand given to a player consisting of two cards"""
+
     def __init__(self, cards: list[Card]):
         self.cards = cards
 
 
 class Community:
-    """Community cards of a single play
-    """
+    """Community cards of a single play"""
+
     def __init__(self):
         self.cards = []
 
 
 class Deck:
-    """Deck of cards
-    """
+    """Deck of cards"""
+
     def __init__(self):
         self.cards = [Card(suit, rank) for rank in Rank for suit in Suit]
 
@@ -148,13 +147,12 @@ class Deck:
         return self.cards.pop(0)
 
     def deal_hand(self):
-        """Return a hand consisting of two cards
-        """
+        """Return a hand consisting of two cards"""
         return Hand([self.pop(), self.pop()])
 
     def deal_community_cards(self, community: Community):
         """Add community cards to the community object
-        
+
         The method understands how many cards to deal based on the number
         of cards already dealt.
 
@@ -170,29 +168,29 @@ class Deck:
 
 
 class Player:
-    """Player of the game
-    """
-    def __init__(self, name: string, chips: int):
+    """Player of the game"""
+
+    def __init__(self, name: string, chips: int, *, is_you=False):
         self.name = name
+        self.is_you = is_you
         self.chips = chips
         self.hand = None  # current hand
         self.round_bet = 0  # current bet (round)
         self.total_bet = 0  # sum of the bets in a single play
-        
+
     def reset_for_round(self):
         self.round_bet = 0
-        
+
     def reset_for_play(self):
-        """Reset player for the start of a new play
-        """
+        """Reset player for the start of a new play"""
         self.hand = None
         self.round_bet = 0
         self.total_bet = 0
 
 
 class Players:
-    """Class for managing the collection of players of the game
-    """
+    """Class for managing the collection of players of the game"""
+
     def __init__(self, players: list[Player]):
         self.starting = players  # starting players (immutable)
         self.active = players.copy()  # active players (players who haven't lost)
@@ -293,7 +291,7 @@ class Players:
     def reset_for_round(self):
         for player in self.active:
             player.round_bet = 0
-            
+
     def reset_for_play(self):
         for player in self.active:
             player.reset_for_play()
