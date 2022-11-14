@@ -12,6 +12,7 @@ from pyker.gui.constants import *
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pyker - Poker Texas Hold'em")
 
+# probably will be moved somewhere else
 LAST_BUTTON_X = 1200
 BUTTONS_Y = 650
 
@@ -21,6 +22,8 @@ COMMUNITY_CARDS = {}
 
 
 class Game:
+    """Single instance of an entire Poker game
+    """
     def __init__(self, players_names):
         if not 2 <= len(players_names) <= 8:
             raise ValueError("Unvalid number of players.")
@@ -35,18 +38,25 @@ class Game:
 
         self.play = None  # the current play
         self.dealer = players[0]  # keep track of the dealer
-        self.blinds_level = 0  # keep track of the blinds level
+        self.blinds_level = 0  # keep track of the blinds level - HAS TO BE UPDATED
 
         self.is_interactive = False  # waiting for the action
         self.available_actions = None
 
     def reset(self):
+        """Stuff to do at the end of a play
+        """
         BUTTONS.clear()
         PLAYER_GUIS.clear()
         COMMUNITY_CARDS.clear()
         self.dealer = self.players.next_to(self.dealer)
 
     def build_buttons(self):
+        """Create the buttons dictionary
+
+        Not sure about what I'm doing with the LAST_BUTTON things,
+        by the way they probably can be just move inside here
+        """
         x, y = LAST_BUTTON_X, BUTTONS_Y
         offset_x = 16
 
@@ -57,14 +67,23 @@ class Game:
             BUTTONS[action] = button
 
     def build_player_guis(self):
+        """Build the player guis dictionary
+
+        Each player has a player GUI object associated in components
+        that will show everything related to the player (name, cards, etc.)
+        """
         for i, player in enumerate(self.players.starting):
             PLAYER_GUIS[player] = PlayerGUI(player, self.n_players, i)
 
     def update_players_info(self):
+        """Info in the GUI must be updated, like the chips count
+        """
         for player_gui in PLAYER_GUIS.values():
             player_gui.update_player_info()
 
     def build_new_community_cards(self):
+        """Create the community cards
+        """
         offset_x = 0
         x, y = 449, 313
 
@@ -74,6 +93,8 @@ class Game:
             offset_x += card_gui.image.get_width() + 8
 
     def draw_window(self):
+        """Draw everything
+        """
         WIN.fill(COLORS["BORDEAUX"])
 
         for player_gui in PLAYER_GUIS.values():
@@ -89,6 +110,8 @@ class Game:
         pygame.display.update()
 
     def loop(self):
+        """Main game loop
+        """
         clock = pygame.time.Clock()
         run = True
         self.is_interactive = False
