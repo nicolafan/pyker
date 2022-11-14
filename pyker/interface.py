@@ -19,6 +19,7 @@ BUTTONS = {}
 PLAYER_GUIS = {}
 COMMUNITY_CARDS = {}
 
+
 class Game:
     def __init__(self, players_names):
         if not 2 <= len(players_names) <= 8:
@@ -26,12 +27,12 @@ class Game:
 
         self.n_players = len(players_names)
         players = []
-        
+
         for i, name in enumerate(players_names):
-            players.append(Player(name, 2000, is_you=i==0))
+            players.append(Player(name, 2000, is_you=i == 0))
         self.you = players[0]
         self.players = Players(players)
- 
+
         self.play = None  # the current play
         self.dealer = players[0]  # keep track of the dealer
         self.blinds_level = 0  # keep track of the blinds level
@@ -44,26 +45,21 @@ class Game:
         PLAYER_GUIS.clear()
         COMMUNITY_CARDS.clear()
         self.dealer = self.players.next_to(self.dealer)
-        
+
     def build_buttons(self):
         x, y = LAST_BUTTON_X, BUTTONS_Y
         offset_x = 16
 
         for action in Action:
-            button = ButtonGUI(WIN, action, topleft=(x, y))
+            button = ButtonGUI(action, topleft=(x, y))
             button.rect.left -= offset_x + button.image.get_width()
             offset_x += button.image.get_width() + 16
             BUTTONS[action] = button
-            
+
     def build_player_guis(self):
         for i, player in enumerate(self.players.starting):
-            PLAYER_GUIS[player] = PlayerGUI(
-                WIN,
-                player,
-                self.n_players,
-                i
-            )
-            
+            PLAYER_GUIS[player] = PlayerGUI(player, self.n_players, i)
+
     def update_players_info(self):
         for player_gui in PLAYER_GUIS.values():
             player_gui.update_player_info()
@@ -73,7 +69,7 @@ class Game:
         x, y = 449, 313
 
         for card in self.play.community.cards:
-            card_gui = CardGUI(WIN, card, topleft=(x + offset_x, y))
+            card_gui = CardGUI(card, topleft=(x + offset_x, y))
             COMMUNITY_CARDS[card] = card_gui
             offset_x += card_gui.image.get_width() + 8
 
@@ -81,12 +77,12 @@ class Game:
         WIN.fill(COLORS["BORDEAUX"])
 
         for player_gui in PLAYER_GUIS.values():
-            player_gui.draw()
+            player_gui.draw(WIN)
         for card_gui in COMMUNITY_CARDS.values():
-            card_gui.draw()
+            card_gui.draw(WIN)
         if self.is_interactive:
             for action in self.available_actions:
-                if BUTTONS[action].draw():
+                if BUTTONS[action].draw(WIN):
                     self.play.execute_action(action)
                     self.is_interactive = False
 
