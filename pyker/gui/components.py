@@ -253,11 +253,20 @@ class TextGUI:
         angle=0,
         color=(255, 255, 255)
     ):
+        self.size = size
+        self.color = color
+        self.angle = angle
+
         self.text = pygame.transform.rotate(
-            FONTS[size].render(text, True, color), angle
+            FONTS[self.size].render(text, True, self.color), self.angle
         )
         self.rect = self.text.get_rect()
         self.rect.topleft = topleft
+
+    def update_text(self, text):
+        self.text = pygame.transform.rotate(
+            FONTS[self.size].render(text, True, self.color), self.angle
+        )
 
     def draw(self, window):
         window.blit(self.text, self.rect)

@@ -139,15 +139,13 @@ class Play:
 
         return actions
 
-    def __bet(self, player: Player):  # will be modified
+    def __bet(self, player: Player, new_bet: int):  # will be modified
+        print(new_bet)
         amount_to_call = self.highest_round_bet - player.round_bet
-        new_bet = int(input("Insert your bet: "))
 
-        while new_bet < self.min_allowed_bet or new_bet > player.chips - amount_to_call:
-            # raise ValueError('Can\t bet this amount.')
-            new_bet = int(input("Insert your bet: "))
-            if new_bet == player.chips - amount_to_call:  # all-in
-                break
+        if new_bet < self.min_allowed_bet or new_bet > player.chips - amount_to_call:
+            if not (new_bet == player.chips - amount_to_call):
+                raise ValueError('Can\t bet this amount.')
 
         # first of all, player calls
         self.__pay(player, amount_to_call)
@@ -156,7 +154,7 @@ class Play:
         self.__pay(player, new_bet)
         self.highest_round_bet = player.round_bet
 
-    def execute_action(self, action: Action):
+    def execute_action(self, action: Action, amount: int=0):
         if action == Action.Fold:
             self.folded_players.add(self.current_player)
         elif action == Action.Call:
@@ -168,8 +166,8 @@ class Play:
                 ),
             )
         elif action == Action.BetOrRaise:
+            self.__bet(self.current_player, amount)
             self.round_last_better = self.current_player
-            self.__bet(self.current_player)
 
         if self.current_player is self.round_last_player and self.round_last_better is None:
             self.__reset_for_round()

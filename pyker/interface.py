@@ -1,4 +1,5 @@
 import pygame
+import enum
 
 from pyker.game import Play
 from pyker.models import *
@@ -12,9 +13,19 @@ pygame.display.set_caption("Pyker - Poker Texas Hold'em")
 LAST_BUTTON_X = 1200
 BUTTONS_Y = 650
 
-BUTTONS = {}
+BUTTON_GUIS = {}
 PLAYER_GUIS = {}
-COMMUNITY_CARDS = {}
+COMMUNITY_CARD_GUIS = {}
+OBJECT_GUIS = {}
+
+
+class GuiObjects(enum.IntEnum):
+    BetText = 0
+
+class GameStatus(enum.IntEnum):
+    Free = 0
+    Choice = 1
+    Betting = 2
 
 
 class Game:
@@ -36,15 +47,18 @@ class Game:
         self.dealer = players[0]  # keep track of the dealer
         self.blinds_level = 0  # keep track of the blinds level - HAS TO BE UPDATED
 
-        self.is_interactive = False  # waiting for the action
+        self.status = GameStatus.Free # waiting for the action
         self.available_actions = None
+
+        # other stuff
+        self.bet_text = None
 
     def reset(self):
         """Stuff to do at the end of a play
         """
-        BUTTONS.clear()
+        BUTTON_GUIS.clear()
         PLAYER_GUIS.clear()
-        COMMUNITY_CARDS.clear()
+        COMMUNITY_CARD_GUIS.clear()
         self.dealer = self.players.next_to(self.dealer)
 
     def build_buttons(self):
@@ -60,7 +74,7 @@ class Game:
             button = ButtonGUI(action, topleft=(x, y))
             button.rect.left -= offset_x + button.image.get_width()
             offset_x += button.image.get_width() + 16
-            BUTTONS[action] = button
+            BUTTON_GUIS[action] = button
 
     def build_player_guis(self):
         """Build the player guis dictionary
@@ -85,7 +99,7 @@ class Game:
 
         for card in self.play.community.cards:
             card_gui = CardGUI(card, topleft=(x + offset_x, y))
-            COMMUNITY_CARDS[card] = card_gui
+            COMMUNITY_CARD_GUIS[card] = card_gui
             offset_x += card_gui.image.get_width() + 8
 
     def draw_window(self):
@@ -95,13 +109,19 @@ class Game:
 
         for player_gui in PLAYER_GUIS.values():
             player_gui.draw(WIN)
-        for card_gui in COMMUNITY_CARDS.values():
+        for card_gui in COMMUNITY_CARD_GUIS.values():
             card_gui.draw(WIN)
-        if self.is_interactive:
+        if self.status is GameStatus.Choice:
             for action in self.available_actions:
-                if BUTTONS[action].draw(WIN):
-                    self.play.execute_action(action)
-                    self.is_interactive = False
+                if BUTTON_GUIS[action].draw(WIN):
+                    if action is Action.BetOrRaise:
+                        self.status = GameStatus.Betting
+                    else:
+                        self.play.execute_action(action)
+                        self.status = GameStatus.Free
+        
+        for object_gui in OBJECT_GUIS.values():
+            object_gui.draw(WIN)
 
         pygame.display.update()
 
@@ -110,16 +130,40 @@ class Game:
         """
         clock = pygame.time.Clock()
         run = True
-        self.is_interactive = False
+        self.status = GameStatus.Free
 
         self.available_actions = None
 
         while run:
             clock.tick(FPS)
-            if self.is_interactive:
-                for event in pygame.event.get():
+            events = pygame.event.get()
+
+            for event in events:
                     if event.type == pygame.QUIT:
                         run = False
+                
+            if self.status is GameStatus.Betting:
+                if self.bet_text is None:
+                    self.bet_text = "$"
+                    bet_text_gui = TextGUI(
+                        text=self.bet_text,
+                        size=FontSize.Large,
+                        topleft=(500, 500)
+                    )
+                    OBJECT_GUIS[GuiObjects.BetText] = bet_text_gui
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            try:
+                                self.play.execute_action(Action.BetOrRaise, int(self.bet_text[1:]))
+                            except ValueError:
+                                self.bet_text = "$"
+                                break
+                            self.bet_text = None
+                            self.status = GameStatus.Free
+                        else:
+                            self.bet_text += event.unicode
+                            OBJECT_GUIS[GuiObjects.BetText].update_text(self.bet_text)
             else:
                 self.update_players_info()
 
@@ -127,6 +171,7 @@ class Game:
                     self.play = Play(self.players, self.dealer, self.blinds_level)
                     self.build_buttons()
                     self.build_player_guis()
+
                 if self.play.current_player is None:  # round ended
                     if self.play.current_round > Round.End:  # play ended
                         self.play = None
@@ -137,7 +182,7 @@ class Game:
                 else:
                     self.available_actions = self.play.take_turn()  # action!
                     if self.available_actions is not None:
-                        self.is_interactive = True
+                        self.status = GameStatus.Choice
 
             self.draw_window()
             if self.players.get_n_active() <= 1:
