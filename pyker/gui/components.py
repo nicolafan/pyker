@@ -22,20 +22,20 @@ class FontSize(enum.IntEnum):
 
 class Marker(enum.IntEnum):
     Dealer = 0
-    SmallBlind = 1
-    BigBlind = 2
+    Bet = 1
 
     def __str__(self):
         marker_str_dict = {
             Marker.Dealer: "dealer",
-            Marker.SmallBlind: "small_blind",
-            Marker.BigBlind: "big_blind",
+            Marker.Bet: "bet"
         }
 
         return marker_str_dict[self]
 
 
 def load_assets():
+    """Load the assets and put the sprites inside the dictionaries
+    """
     assets_dir = "assets"
     assets_cards_dir = Path(os.path.join(assets_dir, "cards"))
     assets_buttons_dir = Path(os.path.join(assets_dir, "buttons"))
@@ -106,14 +106,16 @@ class PlayerGUI:
 
     """Manage the entire presence of a player on the screen (cards, info, objects)
     """
-
-    def __init__(self, player: Player, n_players: int, player_idx: int):
+    def __init__(self, player: Player, n_players: int, player_idx: int, is_dealer: bool):
         self.player = player
+        self.is_dealer = is_dealer
 
         self.card_guis = {}
+        self.marker_guis = {}
         self.player_info_gui = None
         self.is_you = False
 
+        # assign correct cell to player and build cards
         self.cell = None
         if player_idx > 0:  # if is not you
             self.cell = self.player_cells[n_players][player_idx - 1]
@@ -122,6 +124,7 @@ class PlayerGUI:
             self.is_you = True
             self.__build_your_cards()
 
+        # build the player info
         self.update_player_info()
 
     def __build_cards(self):
@@ -145,7 +148,7 @@ class PlayerGUI:
         if self.player.hand is None:
             return
 
-        x, y = WIDTH / 2, 640
+        x, y = WIDTH // 2, 640
         card1, card2 = self.player.hand.cards
         card1_gui = CardGUI(card1, scale=2)
         card2_gui = CardGUI(card2, scale=2)
@@ -156,38 +159,55 @@ class PlayerGUI:
         self.card_guis[card1] = card1_gui
         self.card_guis[card2] = card2_gui
 
-    def update_player_info(self):
-        if self.player.hand is None:
-            return
-
+    def __build_player_info(self):
+        x, y = 0, 0
         if self.is_you:
-            return
-
-        x, y = self.cell_centers[self.cell]
+            x, y = WIDTH // 2 - 218, 720
+        else: 
+            x, y = self.cell_centers[self.cell]
+            y += CELL_HEIGHT // 2
         self.player_info_gui = PlayerInfoGUI(
             self.player,
             color=COLORS["BLACK"],
             width=CELL_WIDTH - 20,
             height=40,
             centerx=x,
-            bottom=y + CELL_HEIGHT // 2,
+            bottom=y
         )
+
+    def __build_markers(self):
+        if self.player.round_bet > 0:
+            self.marker_guis[Marker.Bet] = MarkerGUI(Marker.Bet, self.player, self.cell)
+
+        if self.is_dealer:
+            self.marker_guis[Marker.Dealer] = MarkerGUI(Marker.Dealer, self.player, self.cell)
+
+
+    def update_player_info(self):
+        self.marker_guis.clear()
+
+        if self.player.hand is None:
+            return
+
+        self.__build_player_info()
+        self.__build_markers()
+        
 
     def draw(self, window):
         for card_gui in self.card_guis.values():
             card_gui.draw(window)
 
-        if self.is_you:
-            return
-
         self.player_info_gui.draw(window)
+
+        for marker_gui in self.marker_guis.values():
+            marker_gui.draw(window)
 
 
 class CardGUI:
     def __init__(
         self, card: Card, *, covered=False, topleft=(0, 0), angle=0, scale=1
     ):
-        self.covered = covered
+        self.covered = covered # use it in the future
         self.image = pygame.transform.rotate(CARDS_SPRITES[card.code()], angle)
         self.image = pygame.transform.scale(
             self.image,
@@ -266,20 +286,38 @@ class PlayerInfoGUI:
 
 
 class MarkerGUI:
-    offsets_dict = {
-        (2, 1): ("topright", (5, -5)),
-        (1, 0): ("topright", (10, 0)),
-        (0, 1): ("bottomright", (5, 5)),
-        (0, 3): ("bottomright", (0, 10)),
-        (0, 5): ("bottomleft", (-5, 5)),
-        (1, 6): ("topleft", (-10, 0)),
-        (2, 5): ("topleft", (-5, -5)),
+    cell_offsets = {
+        (2, 1): (100, -100),
+        (1, 0): (100, 0),
+        (0, 1): (100, 100),
+        (0, 3): (0, 100),
+        (0, 5): (-100, 100),
+        (1, 6): (-100, 0),
+        (2, 5): (-100, -100)
     }
 
-    def __init__(
-        self, marker: Marker, is_you=False, cell=None, *, center=None, angle=0
-    ):
-        self.image = pygame.transform.rotate(OTHERS_SPRITES[str(marker)], angle)
+    def __init__(self, marker, player, cell, *, angle=0):
+        self.marker = marker
+        self.player = player
 
-    def draw(self):
-        window = 1
+        self.image = pygame.transform.rotate(OTHERS_SPRITES[str(marker)], angle)
+        self.rect = self.image.get_rect()
+        center = None
+        if cell is None:
+            center = WIDTH // 2, 480
+        else:
+            center = PlayerGUI.cell_centers[cell]
+            center = tuple(map(sum, zip(center, self.cell_offsets[cell]))) # add the offset to the marker center
+        self.rect.center = center
+
+    def draw(self, window):
+        off_x, off_y = 0, 0
+        if self.marker is Marker.Dealer:
+            off_x, off_y = 10, 10
+        if self.marker is Marker.Bet:
+            txt_gui = TextGUI("$" + str(self.player.round_bet), size=FontSize.Medium)
+            txt_gui.rect.centerx = self.rect.x + 10
+            txt_gui.rect.centery = self.rect.y + 40
+            txt_gui.draw(window)
+
+        window.blit(self.image, (self.rect.x + off_x, self.rect.y + off_y))

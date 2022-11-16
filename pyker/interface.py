@@ -1,7 +1,3 @@
-from curses.panel import bottom_panel
-import os
-from pathlib import Path
-
 import pygame
 
 from pyker.game import Play
@@ -73,7 +69,7 @@ class Game:
         that will show everything related to the player (name, cards, etc.)
         """
         for i, player in enumerate(self.players.starting):
-            PLAYER_GUIS[player] = PlayerGUI(player, self.n_players, i)
+            PLAYER_GUIS[player] = PlayerGUI(player, self.n_players, i, player==self.dealer)
 
     def update_players_info(self):
         """Info in the GUI must be updated, like the chips count
@@ -125,6 +121,8 @@ class Game:
                     if event.type == pygame.QUIT:
                         run = False
             else:
+                self.update_players_info()
+
                 if self.play is None:  # start new play
                     self.play = Play(self.players, self.dealer, self.blinds_level)
                     self.build_buttons()
@@ -134,8 +132,7 @@ class Game:
                         self.play = None
                         self.reset()
                     else:
-                        self.update_players_info()  # start new round
-                        self.play.init_round()
+                        self.play.init_round()  # start new round
                         self.build_new_community_cards()
                 else:
                     self.available_actions = self.play.take_turn()  # action!

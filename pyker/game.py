@@ -33,17 +33,16 @@ class Play:
         # blinds bet
         self.__pay(
             self.small_blind_player,
-            min(self.small_blind_bet, self.small_blind_player.chips),
+            min(self.small_blind_bet, self.small_blind_player.chips)
         )
         self.__pay(
-            self.big_blind_player, min(self.big_blind_bet, self.big_blind_player.chips)
+            self.big_blind_player,
+            min(self.big_blind_bet, self.big_blind_player.chips)
         )
 
         # manage round bets
         self.min_allowed_bet = self.big_blind_bet  # min amount to bet or raise
-        self.highest_round_bet = (
-            self.big_blind_bet
-        )  # amount to call to go on to next round
+        self.highest_round_bet = self.big_blind_bet  # amount to bet to go to the next round
 
     def init_round(self):
         if self.current_round == Round.End:
@@ -67,6 +66,8 @@ class Play:
 
     def __reset_for_round(self):
         """Operations to perform after ending a round"""
+        self.current_player = None
+        self.current_round += 1
         self.min_allowed_bet = self.big_blind_bet
         self.highest_round_bet = 0
         self.players.reset_for_round()
@@ -170,10 +171,8 @@ class Play:
             self.round_last_better = self.current_player
             self.__bet(self.current_player)
 
-        if self.current_player is self.round_last_player:
-            self.current_player = None
+        if self.current_player is self.round_last_player and self.round_last_better is None:
             self.__reset_for_round()
-            self.current_round += 1
         else:
             self.current_player = self.players.next_to(self.current_player)
 
@@ -209,8 +208,7 @@ class Play:
 
         # if the player is the last better the round ends
         if self.current_player is self.round_last_better:
-            self.current_player = None
-            self.current_round += 1
+            self.__reset_for_round()
             return None
 
         actions = self.__available_actions(self.current_player)
