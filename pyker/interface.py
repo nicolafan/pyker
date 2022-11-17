@@ -22,6 +22,7 @@ OBJECT_GUIS = {}
 class GuiObjects(enum.IntEnum):
     BetText = 0
     Pot = 1
+    WinnerText = 2
 
 
 class GameStatus(enum.IntEnum):
@@ -29,6 +30,7 @@ class GameStatus(enum.IntEnum):
     Choice = 1
     Betting = 2
     ShowWinner = 3
+    EndGame = 4
 
 
 class Game:
@@ -56,6 +58,8 @@ class Game:
         # other stuff
         self.bet_text = None
         self.pot = 0
+        self.cards_discovered = False
+        self.winners = None
 
     def reset(self):
         """Stuff to do at the end of a play"""
@@ -97,6 +101,7 @@ class Game:
         for player_gui in PLAYER_GUIS.values():
             color = COLORS["BLACK"]
             if player_gui.player in self.play.folded_players:
+                print("redddd")
                 color = COLORS["RED"]
             player_gui.update_player_info(color)
 
@@ -127,15 +132,16 @@ class Game:
         # show player guis
         for player_gui in PLAYER_GUIS.values():
             if player_gui.player in self.players.active:
-                if player_gui.player in self.play.folded_players:
-                    if not player_gui.folded:
-                        player_gui.set_folded()
-                elif player_gui.player == self.play.current_player:
-                    if not player_gui.is_current_player:
-                        player_gui.set_current_player()
+                if self.status is GameStatus.ShowWinner:
+                    if not player_gui.is_winner and player_gui.player in self.winners:
+                        player_gui.set_winner()
                 else:
-                    if player_gui.is_current_player:
-                        player_gui.unset_current_player()
+                    if player_gui.player == self.play.current_player:
+                        if not player_gui.is_current_player:
+                            player_gui.set_current_player()
+                    else:
+                        if player_gui.is_current_player and not player_gui.player in self.play.folded_players:
+                            player_gui.unset_current_player()
                 player_gui.draw(WIN)
 
         # show community cards
@@ -207,6 +213,33 @@ class Game:
                         else:
                             self.bet_text += event.unicode
                             OBJECT_GUIS[GuiObjects.BetText].update_text(self.bet_text)
+            elif self.status is GameStatus.ShowWinner:
+                if not self.cards_discovered:
+                    self.cards_discovered = True
+                    for player_gui in PLAYER_GUIS.values():
+                        player_gui.discover_cards()
+                
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            self.cards_discovered = False
+                            self.status = GameStatus.Free
+            elif self.status is GameStatus.EndGame:
+                if not GuiObjects.WinnerText in OBJECT_GUIS:
+                    winner = self.play.players.active[0].name
+                    winner_text = f"The winner is {winner}"
+                    winner_text_gui = TextGUI(
+                        winner_text,
+                        size=FontSize.Large,
+                        topleft=(320, 320),
+                        color=COLORS["BLACK"]
+                    )
+                    OBJECT_GUIS[GuiObjects.WinnerText] = winner_text_gui
+
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            run = False
             else:
                 # self.update_players_info()
 
@@ -227,6 +260,7 @@ class Game:
                             self.build_new_community_cards()
                         else:
                             self.status = GameStatus.ShowWinner
+                            self.winners = winners
                 else:  # player plays, in the future only you will play
                     self.available_actions = self.play.take_turn()  # action!
                     if self.available_actions is not None:
@@ -234,7 +268,7 @@ class Game:
 
             self.draw_window()
             if self.players.get_n_active() <= 1:
-                run = False
+                self.status = GameStatus.EndGame
 
         pygame.quit()
 

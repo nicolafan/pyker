@@ -110,6 +110,7 @@ class PlayerGUI:
         self.is_dealer = is_dealer
         self.is_current_player = False
         self.folded = False
+        self.is_winner = False
 
         self.card_guis = {}
         self.marker_guis = {}
@@ -136,9 +137,14 @@ class PlayerGUI:
         self.is_current_player = False
         self.update_player_info()
 
-    def set_folded(self):
-        self.folded = True
-        self.update_player_info(COLORS["RED"])
+    def set_winner(self):
+        self.is_winner = True
+        self.update_player_info(COLORS["YELLOW"])
+
+    def discover_cards(self):
+        if not self.is_you:
+            for card in self.card_guis.values():
+                card.discover()
 
     def __build_cards(self):
         if self.player.hand is None:
@@ -147,8 +153,8 @@ class PlayerGUI:
         x, y = self.cell_centers[self.cell]
 
         card1, card2 = self.player.hand.cards
-        card1_gui = CardGUI(card1)
-        card2_gui = CardGUI(card2)
+        card1_gui = CardGUI(card1, covered=True)
+        card2_gui = CardGUI(card2, covered=True)
         card1_gui.rect.right = x - 1
         card2_gui.rect.left = x + 1
         card1_gui.rect.centery = y
@@ -218,14 +224,22 @@ class PlayerGUI:
 
 class CardGUI:
     def __init__(self, card: Card, *, covered=False, topleft=(0, 0), angle=0, scale=1):
+        self.card = card
+        self.angle = angle
         self.covered = covered  # use it in the future
         self.image = pygame.transform.rotate(CARDS_SPRITES[card.code()], angle)
+        if covered:
+            self.image = pygame.transform.rotate(CARDS_SPRITES["back_blue"], angle)
         self.image = pygame.transform.scale(
             self.image,
             (self.image.get_width() * scale, self.image.get_height() * scale),
         )
         self.rect = self.image.get_rect()  # use the rect to move the card
         self.rect.topleft = topleft
+
+    def discover(self):
+        self.covered = False
+        self.image = pygame.transform.rotate(CARDS_SPRITES[self.card.code()], self.angle)
 
     def draw(self, window):
         window.blit(self.image, (self.rect.x, self.rect.y))
