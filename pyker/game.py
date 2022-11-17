@@ -33,21 +33,21 @@ class Play:
         # blinds bet
         self.__pay(
             self.small_blind_player,
-            min(self.small_blind_bet, self.small_blind_player.chips)
+            min(self.small_blind_bet, self.small_blind_player.chips),
         )
         self.__pay(
-            self.big_blind_player,
-            min(self.big_blind_bet, self.big_blind_player.chips)
+            self.big_blind_player, min(self.big_blind_bet, self.big_blind_player.chips)
         )
 
         # manage round bets
         self.min_allowed_bet = self.big_blind_bet  # min amount to bet or raise
-        self.highest_round_bet = self.big_blind_bet  # amount to bet to go to the next round
+        self.highest_round_bet = (
+            self.big_blind_bet
+        )  # amount to bet to go to the next round
 
     def init_round(self):
         if self.current_round == Round.End:
-            self.end()
-            return
+            return self.end()
 
         if self.current_round > Round.PreFlop:
             self.deck.deal_community_cards(self.community)
@@ -74,7 +74,8 @@ class Play:
 
     def end(self):
         # manage end play
-        pot = sum([player.total_bet for player in self.players.active])
+        pot = self.get_pot()
+        winners = None
 
         # distribute the entire pot
         while pot > 0:
@@ -95,7 +96,7 @@ class Play:
             ]
             min_bet = min(bets)
 
-            # assign as a pot the min bet of all the players 
+            # assign as a pot the min bet of all the players
             pot_to_assign = min_bet * len(bets)
             pot_to_assing_by_player = math.ceil(pot_to_assign / len(winners))
 
@@ -112,7 +113,10 @@ class Play:
 
         # end play
         self.players.remove_losers()
-        self.current_round += 1
+        # self.current_round += 1
+        self.__reset_for_round()
+
+        return winners
 
     def __deal(self):
         self.deck.shuffle()
@@ -147,7 +151,7 @@ class Play:
 
         if new_bet < self.min_allowed_bet or new_bet > player.chips - amount_to_call:
             if not (new_bet == player.chips - amount_to_call):
-                raise ValueError('Can\t bet this amount.')
+                raise ValueError("Can\t bet this amount.")
 
         # first of all, player calls
         self.__pay(player, amount_to_call)
@@ -156,7 +160,7 @@ class Play:
         self.__pay(player, new_bet)
         self.highest_round_bet = player.round_bet
 
-    def execute_action(self, action: Action, amount: int=0):
+    def execute_action(self, action: Action, amount: int = 0):
         if action == Action.Fold:
             self.folded_players.add(self.current_player)
         elif action == Action.Call:
@@ -171,7 +175,10 @@ class Play:
             self.__bet(self.current_player, amount)
             self.round_last_better = self.current_player
 
-        if self.current_player is self.round_last_player and self.round_last_better is None:
+        if (
+            self.current_player is self.round_last_player
+            and self.round_last_better is None
+        ):
             self.__reset_for_round()
         else:
             self.current_player = self.players.next_to(self.current_player)
@@ -213,3 +220,6 @@ class Play:
 
         actions = self.__available_actions(self.current_player)
         return actions
+
+    def get_pot(self):
+        return sum([player.total_bet for player in self.players.active])

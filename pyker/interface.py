@@ -21,16 +21,19 @@ OBJECT_GUIS = {}
 
 class GuiObjects(enum.IntEnum):
     BetText = 0
+    Pot = 1
+
 
 class GameStatus(enum.IntEnum):
     Free = 0
     Choice = 1
     Betting = 2
+    ShowWinner = 3
 
 
 class Game:
-    """Single instance of an entire Poker game
-    """
+    """Single instance of an entire Poker game"""
+
     def __init__(self, players_names):
         if not 2 <= len(players_names) <= 8:
             raise ValueError("Unvalid number of players.")
@@ -47,18 +50,20 @@ class Game:
         self.dealer = players[0]  # keep track of the dealer
         self.blinds_level = 0  # keep track of the blinds level - HAS TO BE UPDATED
 
-        self.status = GameStatus.Free # waiting for the action
+        self.status = GameStatus.Free  # waiting for the action
         self.available_actions = None
 
         # other stuff
         self.bet_text = None
+        self.pot = 0
 
     def reset(self):
-        """Stuff to do at the end of a play
-        """
+        """Stuff to do at the end of a play"""
         BUTTON_GUIS.clear()
         PLAYER_GUIS.clear()
         COMMUNITY_CARD_GUIS.clear()
+        OBJECT_GUIS.clear()
+        self.pot = 0
         self.dealer = self.players.next_to(self.dealer)
 
     def build_buttons(self):
@@ -83,17 +88,30 @@ class Game:
         that will show everything related to the player (name, cards, etc.)
         """
         for i, player in enumerate(self.players.starting):
-            PLAYER_GUIS[player] = PlayerGUI(player, self.n_players, i, player==self.dealer)
+            PLAYER_GUIS[player] = PlayerGUI(
+                player, self.n_players, i, player == self.dealer
+            )
 
     def update_players_info(self):
-        """Info in the GUI must be updated, like the chips count
-        """
+        """Info in the GUI must be updated, like the chips count"""
         for player_gui in PLAYER_GUIS.values():
-            player_gui.update_player_info()
+            color = COLORS["BLACK"]
+            if player_gui.player in self.play.folded_players:
+                color = COLORS["RED"]
+            player_gui.update_player_info(color)
+
+    def build_pot_gui(self):
+        self.pot = self.play.get_pot()
+
+        OBJECT_GUIS[GuiObjects.Pot] = TextGUI(
+            text=f"${self.pot}",
+            size=FontSize.Large,
+            topleft=(600, 240),
+            color=(255, 255, 0),
+        )
 
     def build_new_community_cards(self):
-        """Create the community cards
-        """
+        """Create the community cards"""
         offset_x = 0
         x, y = 449, 313
 
@@ -103,14 +121,28 @@ class Game:
             offset_x += card_gui.image.get_width() + 8
 
     def draw_window(self):
-        """Draw everything
-        """
+        """Draw everything"""
         WIN.fill(COLORS["BORDEAUX"])
 
+        # show player guis
         for player_gui in PLAYER_GUIS.values():
-            player_gui.draw(WIN)
+            if player_gui.player in self.players.active:
+                if player_gui.player in self.play.folded_players:
+                    if not player_gui.folded:
+                        player_gui.set_folded()
+                elif player_gui.player == self.play.current_player:
+                    if not player_gui.is_current_player:
+                        player_gui.set_current_player()
+                else:
+                    if player_gui.is_current_player:
+                        player_gui.unset_current_player()
+                player_gui.draw(WIN)
+
+        # show community cards
         for card_gui in COMMUNITY_CARD_GUIS.values():
             card_gui.draw(WIN)
+
+        # show buttons
         if self.status is GameStatus.Choice:
             for action in self.available_actions:
                 if BUTTON_GUIS[action].draw(WIN):
@@ -118,16 +150,24 @@ class Game:
                         self.status = GameStatus.Betting
                     else:
                         self.play.execute_action(action)
+                        self.build_pot_gui()
+                        self.update_players_info()
                         self.status = GameStatus.Free
-        
-        for object_gui in OBJECT_GUIS.values():
-            object_gui.draw(WIN)
+
+        # show objects (custom code for each object)
+        for gui_object in GuiObjects:
+            if gui_object in OBJECT_GUIS:
+                if (
+                    gui_object is GuiObjects.BetText
+                    and not self.status is GameStatus.Betting
+                ):
+                    continue
+                OBJECT_GUIS[gui_object].draw(WIN)
 
         pygame.display.update()
 
     def loop(self):
-        """Main game loop
-        """
+        """Main game loop"""
         clock = pygame.time.Clock()
         run = True
         self.status = GameStatus.Free
@@ -139,23 +179,26 @@ class Game:
             events = pygame.event.get()
 
             for event in events:
-                    if event.type == pygame.QUIT:
-                        run = False
-                
+                if event.type == pygame.QUIT:
+                    run = False
+
             if self.status is GameStatus.Betting:
+                # bet text area
                 if self.bet_text is None:
                     self.bet_text = "$"
                     bet_text_gui = TextGUI(
-                        text=self.bet_text,
-                        size=FontSize.Large,
-                        topleft=(500, 500)
+                        text=self.bet_text, size=FontSize.Large, topleft=(500, 500)
                     )
                     OBJECT_GUIS[GuiObjects.BetText] = bet_text_gui
                 for event in events:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_RETURN:
                             try:
-                                self.play.execute_action(Action.BetOrRaise, int(self.bet_text[1:]))
+                                self.play.execute_action(
+                                    Action.BetOrRaise, int(self.bet_text[1:])
+                                )
+                                self.build_pot_gui()
+                                self.update_players_info()
                             except ValueError:
                                 self.bet_text = "$"
                                 break
@@ -165,21 +208,26 @@ class Game:
                             self.bet_text += event.unicode
                             OBJECT_GUIS[GuiObjects.BetText].update_text(self.bet_text)
             else:
-                self.update_players_info()
+                # self.update_players_info()
 
                 if self.play is None:  # start new play
                     self.play = Play(self.players, self.dealer, self.blinds_level)
                     self.build_buttons()
                     self.build_player_guis()
+                    self.build_pot_gui()
 
                 if self.play.current_player is None:  # round ended
                     if self.play.current_round > Round.End:  # play ended
                         self.play = None
                         self.reset()
                     else:
-                        self.play.init_round()  # start new round
-                        self.build_new_community_cards()
-                else:
+                        winners = self.play.init_round()  # start new round
+                        self.update_players_info()
+                        if winners is None:
+                            self.build_new_community_cards()
+                        else:
+                            self.status = GameStatus.ShowWinner
+                else:  # player plays, in the future only you will play
                     self.available_actions = self.play.take_turn()  # action!
                     if self.available_actions is not None:
                         self.status = GameStatus.Choice
@@ -192,6 +240,6 @@ class Game:
 
 
 if __name__ == "__main__":
-    players = ["John", "Lucy", "jasdfksa", "aa", "bb", "cc", "dd", "ee"]
+    players = ["John", "Lucy", "Carl", "Hannah", "Luke", "Mike", "Steven", "Leah"]
     game = Game(players)
     game.loop()
