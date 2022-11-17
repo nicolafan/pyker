@@ -210,6 +210,9 @@ class Game:
                                 break
                             self.bet_text = None
                             self.status = GameStatus.Free
+                        elif event.key == pygame.K_ESCAPE:
+                            self.bet_text = None
+                            self.status = GameStatus.Choice
                         else:
                             self.bet_text += event.unicode
                             OBJECT_GUIS[GuiObjects.BetText].update_text(self.bet_text)
