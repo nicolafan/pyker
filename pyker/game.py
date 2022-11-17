@@ -78,6 +78,7 @@ class Play:
 
         # distribute the entire pot
         while pot > 0:
+            # players that could win the pot
             ending_players = [
                 player
                 for player in self.players.active
@@ -86,6 +87,7 @@ class Play:
             ]
             winners = get_winners(ending_players, self.community)
 
+            # bets of the players, at the end of the game, not only ending players
             bets = [
                 player.total_bet
                 for player in self.players.active
@@ -93,7 +95,8 @@ class Play:
             ]
             min_bet = min(bets)
 
-            pot_to_assign = min_bet * len(ending_players)
+            # assign as a pot the min bet of all the players 
+            pot_to_assign = min_bet * len(bets)
             pot_to_assing_by_player = math.ceil(pot_to_assign / len(winners))
 
             for winner in winners:
@@ -140,7 +143,6 @@ class Play:
         return actions
 
     def __bet(self, player: Player, new_bet: int):  # will be modified
-        print(new_bet)
         amount_to_call = self.highest_round_bet - player.round_bet
 
         if new_bet < self.min_allowed_bet or new_bet > player.chips - amount_to_call:
