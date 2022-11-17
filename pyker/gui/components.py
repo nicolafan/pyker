@@ -25,17 +25,13 @@ class Marker(enum.IntEnum):
     Bet = 1
 
     def __str__(self):
-        marker_str_dict = {
-            Marker.Dealer: "dealer",
-            Marker.Bet: "bet"
-        }
+        marker_str_dict = {Marker.Dealer: "dealer", Marker.Bet: "bet"}
 
         return marker_str_dict[self]
 
 
 def load_assets():
-    """Load the assets and put the sprites inside the dictionaries
-    """
+    """Load the assets and put the sprites inside the dictionaries"""
     assets_dir = "assets"
     assets_cards_dir = Path(os.path.join(assets_dir, "cards"))
     assets_buttons_dir = Path(os.path.join(assets_dir, "buttons"))
@@ -106,9 +102,15 @@ class PlayerGUI:
 
     """Manage the entire presence of a player on the screen (cards, info, objects)
     """
-    def __init__(self, player: Player, n_players: int, player_idx: int, is_dealer: bool):
+
+    def __init__(
+        self, player: Player, n_players: int, player_idx: int, is_dealer: bool
+    ):
         self.player = player
         self.is_dealer = is_dealer
+        self.is_current_player = False
+        self.folded = False
+        self.is_winner = False
 
         self.card_guis = {}
         self.marker_guis = {}
@@ -127,6 +129,23 @@ class PlayerGUI:
         # build the player info
         self.update_player_info()
 
+    def set_current_player(self):
+        self.is_current_player = True
+        self.update_player_info(COLORS["BLUE"])
+
+    def unset_current_player(self):
+        self.is_current_player = False
+        self.update_player_info()
+
+    def set_winner(self):
+        self.is_winner = True
+        self.update_player_info(COLORS["YELLOW"])
+
+    def discover_cards(self):
+        if not self.is_you:
+            for card in self.card_guis.values():
+                card.discover()
+
     def __build_cards(self):
         if self.player.hand is None:
             return
@@ -134,8 +153,8 @@ class PlayerGUI:
         x, y = self.cell_centers[self.cell]
 
         card1, card2 = self.player.hand.cards
-        card1_gui = CardGUI(card1)
-        card2_gui = CardGUI(card2)
+        card1_gui = CardGUI(card1, covered=True)
+        card2_gui = CardGUI(card2, covered=True)
         card1_gui.rect.right = x - 1
         card2_gui.rect.left = x + 1
         card1_gui.rect.centery = y
@@ -159,20 +178,20 @@ class PlayerGUI:
         self.card_guis[card1] = card1_gui
         self.card_guis[card2] = card2_gui
 
-    def __build_player_info(self):
+    def __build_player_info(self, color):
         x, y = 0, 0
         if self.is_you:
             x, y = WIDTH // 2 - 218, 720
-        else: 
+        else:
             x, y = self.cell_centers[self.cell]
             y += CELL_HEIGHT // 2
         self.player_info_gui = PlayerInfoGUI(
             self.player,
-            color=COLORS["BLACK"],
+            color=color,
             width=CELL_WIDTH - 20,
             height=40,
             centerx=x,
-            bottom=y
+            bottom=y,
         )
 
     def __build_markers(self):
@@ -180,18 +199,18 @@ class PlayerGUI:
             self.marker_guis[Marker.Bet] = MarkerGUI(Marker.Bet, self.player, self.cell)
 
         if self.is_dealer:
-            self.marker_guis[Marker.Dealer] = MarkerGUI(Marker.Dealer, self.player, self.cell)
+            self.marker_guis[Marker.Dealer] = MarkerGUI(
+                Marker.Dealer, self.player, self.cell
+            )
 
-
-    def update_player_info(self):
+    def update_player_info(self, color=COLORS["BLACK"]):
         self.marker_guis.clear()
 
         if self.player.hand is None:
             return
 
-        self.__build_player_info()
+        self.__build_player_info(color)
         self.__build_markers()
-        
 
     def draw(self, window):
         for card_gui in self.card_guis.values():
@@ -204,17 +223,23 @@ class PlayerGUI:
 
 
 class CardGUI:
-    def __init__(
-        self, card: Card, *, covered=False, topleft=(0, 0), angle=0, scale=1
-    ):
-        self.covered = covered # use it in the future
+    def __init__(self, card: Card, *, covered=False, topleft=(0, 0), angle=0, scale=1):
+        self.card = card
+        self.angle = angle
+        self.covered = covered  # use it in the future
         self.image = pygame.transform.rotate(CARDS_SPRITES[card.code()], angle)
+        if covered:
+            self.image = pygame.transform.rotate(CARDS_SPRITES["back_blue"], angle)
         self.image = pygame.transform.scale(
             self.image,
             (self.image.get_width() * scale, self.image.get_height() * scale),
         )
         self.rect = self.image.get_rect()  # use the rect to move the card
         self.rect.topleft = topleft
+
+    def discover(self):
+        self.covered = False
+        self.image = pygame.transform.rotate(CARDS_SPRITES[self.card.code()], self.angle)
 
     def draw(self, window):
         window.blit(self.image, (self.rect.x, self.rect.y))
@@ -253,11 +278,20 @@ class TextGUI:
         angle=0,
         color=(255, 255, 255)
     ):
+        self.size = size
+        self.color = color
+        self.angle = angle
+
         self.text = pygame.transform.rotate(
-            FONTS[size].render(text, True, color), angle
+            FONTS[self.size].render(text, True, self.color), self.angle
         )
         self.rect = self.text.get_rect()
         self.rect.topleft = topleft
+
+    def update_text(self, text):
+        self.text = pygame.transform.rotate(
+            FONTS[self.size].render(text, True, self.color), self.angle
+        )
 
     def draw(self, window):
         window.blit(self.text, self.rect)
@@ -266,6 +300,7 @@ class TextGUI:
 class PlayerInfoGUI:
     def __init__(self, player, *, color, width, height, centerx, bottom):
         self.surface = pygame.Surface((width, height))  # the size of your rect
+        self.color = color
         self.surface.set_alpha(128)  # alpha level
         self.surface.fill(color)
         self.rect = self.surface.get_rect(centerx=centerx, bottom=bottom)
@@ -293,7 +328,7 @@ class MarkerGUI:
         (0, 3): (0, 100),
         (0, 5): (-100, 100),
         (1, 6): (-100, 0),
-        (2, 5): (-100, -100)
+        (2, 5): (-100, -100),
     }
 
     def __init__(self, marker, player, cell, *, angle=0):
@@ -307,7 +342,9 @@ class MarkerGUI:
             center = WIDTH // 2, 480
         else:
             center = PlayerGUI.cell_centers[cell]
-            center = tuple(map(sum, zip(center, self.cell_offsets[cell]))) # add the offset to the marker center
+            center = tuple(
+                map(sum, zip(center, self.cell_offsets[cell]))
+            )  # add the offset to the marker center
         self.rect.center = center
 
     def draw(self, window):

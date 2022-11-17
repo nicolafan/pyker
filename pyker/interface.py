@@ -1,4 +1,5 @@
 import pygame
+import enum
 
 from pyker.game import Play
 from pyker.models import *
@@ -12,14 +13,29 @@ pygame.display.set_caption("Pyker - Poker Texas Hold'em")
 LAST_BUTTON_X = 1200
 BUTTONS_Y = 650
 
-BUTTONS = {}
+BUTTON_GUIS = {}
 PLAYER_GUIS = {}
-COMMUNITY_CARDS = {}
+COMMUNITY_CARD_GUIS = {}
+OBJECT_GUIS = {}
+
+
+class GuiObjects(enum.IntEnum):
+    BetText = 0
+    Pot = 1
+    WinnerText = 2
+
+
+class GameStatus(enum.IntEnum):
+    Free = 0
+    Choice = 1
+    Betting = 2
+    ShowWinner = 3
+    EndGame = 4
 
 
 class Game:
-    """Single instance of an entire Poker game
-    """
+    """Single instance of an entire Poker game"""
+
     def __init__(self, players_names):
         if not 2 <= len(players_names) <= 8:
             raise ValueError("Unvalid number of players.")
@@ -36,15 +52,22 @@ class Game:
         self.dealer = players[0]  # keep track of the dealer
         self.blinds_level = 0  # keep track of the blinds level - HAS TO BE UPDATED
 
-        self.is_interactive = False  # waiting for the action
+        self.status = GameStatus.Free  # waiting for the action
         self.available_actions = None
 
+        # other stuff
+        self.bet_text = None
+        self.pot = 0
+        self.cards_discovered = False
+        self.winners = None
+
     def reset(self):
-        """Stuff to do at the end of a play
-        """
-        BUTTONS.clear()
+        """Stuff to do at the end of a play"""
+        BUTTON_GUIS.clear()
         PLAYER_GUIS.clear()
-        COMMUNITY_CARDS.clear()
+        COMMUNITY_CARD_GUIS.clear()
+        OBJECT_GUIS.clear()
+        self.pot = 0
         self.dealer = self.players.next_to(self.dealer)
 
     def build_buttons(self):
@@ -60,7 +83,7 @@ class Game:
             button = ButtonGUI(action, topleft=(x, y))
             button.rect.left -= offset_x + button.image.get_width()
             offset_x += button.image.get_width() + 16
-            BUTTONS[action] = button
+            BUTTON_GUIS[action] = button
 
     def build_player_guis(self):
         """Build the player guis dictionary
@@ -69,84 +92,191 @@ class Game:
         that will show everything related to the player (name, cards, etc.)
         """
         for i, player in enumerate(self.players.starting):
-            PLAYER_GUIS[player] = PlayerGUI(player, self.n_players, i, player==self.dealer)
+            PLAYER_GUIS[player] = PlayerGUI(
+                player, self.n_players, i, player == self.dealer
+            )
 
     def update_players_info(self):
-        """Info in the GUI must be updated, like the chips count
-        """
+        """Info in the GUI must be updated, like the chips count"""
         for player_gui in PLAYER_GUIS.values():
-            player_gui.update_player_info()
+            color = COLORS["BLACK"]
+            if player_gui.player in self.play.folded_players:
+                print("redddd")
+                color = COLORS["RED"]
+            player_gui.update_player_info(color)
+
+    def build_pot_gui(self):
+        self.pot = self.play.get_pot()
+
+        OBJECT_GUIS[GuiObjects.Pot] = TextGUI(
+            text=f"${self.pot}",
+            size=FontSize.Large,
+            topleft=(600, 240),
+            color=(255, 255, 0),
+        )
 
     def build_new_community_cards(self):
-        """Create the community cards
-        """
+        """Create the community cards"""
         offset_x = 0
         x, y = 449, 313
 
         for card in self.play.community.cards:
             card_gui = CardGUI(card, topleft=(x + offset_x, y))
-            COMMUNITY_CARDS[card] = card_gui
+            COMMUNITY_CARD_GUIS[card] = card_gui
             offset_x += card_gui.image.get_width() + 8
 
     def draw_window(self):
-        """Draw everything
-        """
+        """Draw everything"""
         WIN.fill(COLORS["BORDEAUX"])
 
+        # show player guis
         for player_gui in PLAYER_GUIS.values():
-            player_gui.draw(WIN)
-        for card_gui in COMMUNITY_CARDS.values():
+            if player_gui.player in self.players.active:
+                if self.status is GameStatus.ShowWinner:
+                    if not player_gui.is_winner and player_gui.player in self.winners:
+                        player_gui.set_winner()
+                else:
+                    if player_gui.player == self.play.current_player:
+                        if not player_gui.is_current_player:
+                            player_gui.set_current_player()
+                    else:
+                        if player_gui.is_current_player and not player_gui.player in self.play.folded_players:
+                            player_gui.unset_current_player()
+                player_gui.draw(WIN)
+
+        # show community cards
+        for card_gui in COMMUNITY_CARD_GUIS.values():
             card_gui.draw(WIN)
-        if self.is_interactive:
+
+        # show buttons
+        if self.status is GameStatus.Choice:
             for action in self.available_actions:
-                if BUTTONS[action].draw(WIN):
-                    self.play.execute_action(action)
-                    self.is_interactive = False
+                if BUTTON_GUIS[action].draw(WIN):
+                    if action is Action.BetOrRaise:
+                        self.status = GameStatus.Betting
+                    else:
+                        self.play.execute_action(action)
+                        self.build_pot_gui()
+                        self.update_players_info()
+                        self.status = GameStatus.Free
+
+        # show objects (custom code for each object)
+        for gui_object in GuiObjects:
+            if gui_object in OBJECT_GUIS:
+                if (
+                    gui_object is GuiObjects.BetText
+                    and not self.status is GameStatus.Betting
+                ):
+                    continue
+                OBJECT_GUIS[gui_object].draw(WIN)
 
         pygame.display.update()
 
     def loop(self):
-        """Main game loop
-        """
+        """Main game loop"""
         clock = pygame.time.Clock()
         run = True
-        self.is_interactive = False
+        self.status = GameStatus.Free
 
         self.available_actions = None
 
         while run:
             clock.tick(FPS)
-            if self.is_interactive:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        run = False
+            events = pygame.event.get()
+
+            for event in events:
+                if event.type == pygame.QUIT:
+                    run = False
+
+            if self.status is GameStatus.Betting:
+                # bet text area
+                if self.bet_text is None:
+                    self.bet_text = "$"
+                    bet_text_gui = TextGUI(
+                        text=self.bet_text, size=FontSize.Large, topleft=(500, 500)
+                    )
+                    OBJECT_GUIS[GuiObjects.BetText] = bet_text_gui
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            try:
+                                self.play.execute_action(
+                                    Action.BetOrRaise, int(self.bet_text[1:])
+                                )
+                                self.build_pot_gui()
+                                self.update_players_info()
+                            except ValueError:
+                                self.bet_text = "$"
+                                break
+                            self.bet_text = None
+                            self.status = GameStatus.Free
+                        elif event.key == pygame.K_ESCAPE:
+                            self.bet_text = None
+                            self.status = GameStatus.Choice
+                        else:
+                            self.bet_text += event.unicode
+                            OBJECT_GUIS[GuiObjects.BetText].update_text(self.bet_text)
+            elif self.status is GameStatus.ShowWinner:
+                if not self.cards_discovered:
+                    self.cards_discovered = True
+                    for player_gui in PLAYER_GUIS.values():
+                        player_gui.discover_cards()
+                
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            self.cards_discovered = False
+                            self.status = GameStatus.Free
+            elif self.status is GameStatus.EndGame:
+                if not GuiObjects.WinnerText in OBJECT_GUIS:
+                    winner = self.play.players.active[0].name
+                    winner_text = f"The winner is {winner}"
+                    winner_text_gui = TextGUI(
+                        winner_text,
+                        size=FontSize.Large,
+                        topleft=(320, 320),
+                        color=COLORS["BLACK"]
+                    )
+                    OBJECT_GUIS[GuiObjects.WinnerText] = winner_text_gui
+
+                for event in events:
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            run = False
             else:
-                self.update_players_info()
+                # self.update_players_info()
 
                 if self.play is None:  # start new play
                     self.play = Play(self.players, self.dealer, self.blinds_level)
                     self.build_buttons()
                     self.build_player_guis()
+                    self.build_pot_gui()
+
                 if self.play.current_player is None:  # round ended
                     if self.play.current_round > Round.End:  # play ended
                         self.play = None
                         self.reset()
                     else:
-                        self.play.init_round()  # start new round
-                        self.build_new_community_cards()
-                else:
+                        winners = self.play.init_round()  # start new round
+                        self.update_players_info()
+                        if winners is None:
+                            self.build_new_community_cards()
+                        else:
+                            self.status = GameStatus.ShowWinner
+                            self.winners = winners
+                else:  # player plays, in the future only you will play
                     self.available_actions = self.play.take_turn()  # action!
                     if self.available_actions is not None:
-                        self.is_interactive = True
+                        self.status = GameStatus.Choice
 
             self.draw_window()
             if self.players.get_n_active() <= 1:
-                run = False
+                self.status = GameStatus.EndGame
 
         pygame.quit()
 
 
 if __name__ == "__main__":
-    players = ["John", "Lucy", "jasdfksa", "aa", "bb", "cc", "dd", "ee"]
+    players = ["John", "Lucy", "Carl", "Hannah", "Luke", "Mike", "Steven", "Leah"]
     game = Game(players)
     game.loop()
