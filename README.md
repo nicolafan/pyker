@@ -86,7 +86,7 @@ pip install -r requirements.txt
 Global imports have been used in this project. To run it, execute:
 
 ```
-python -m pyker.interface
+python -m pyker.gui.interface
 ```
 
 from the project root.
@@ -122,9 +122,14 @@ Don't forget to give the project a star! Thanks again!
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+You can run tests using `pytest` with the command:
+```
+python -m pytest
+```
+
+from the project root.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- LICENSE -->
 ## License
