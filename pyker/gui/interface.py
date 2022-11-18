@@ -1,8 +1,8 @@
 import pygame
 import enum
 
-from pyker.game import Play
-from pyker.models import *
+from pyker.game.game import Play
+from pyker.game.models import *
 from pyker.gui.components import *
 from pyker.gui.constants import *
 

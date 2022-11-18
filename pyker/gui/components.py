@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 import pygame
-from pyker.models import Action, Card, Player
+from pyker.game.models import Action, Card, Player
 from pyker.gui.constants import *
 
 

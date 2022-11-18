@@ -7,7 +7,7 @@ from tests.util import (
     build_hand as bh,
     build_community as bcm,
 )
-from pyker.hands_checker import *
+from pyker.game.hands_checker import *
 
 
 @pytest.mark.parametrize(

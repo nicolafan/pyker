@@ -1,4 +1,4 @@
-from pyker.models import *
+from pyker.game.models import *
 
 C = Suit.Clubs
 D = Suit.Diamonds
