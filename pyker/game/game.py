@@ -1,7 +1,7 @@
 import math
 
-from pyker.hands_checker import get_winners
-from pyker.models import *
+from pyker.game.hands_checker import get_winners
+from pyker.game.models import *
 
 
 class Play:

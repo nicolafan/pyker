@@ -1,5 +1,5 @@
 from turtle import pos
-from pyker.models import *
+from pyker.game.models import *
 import enum
 
 
