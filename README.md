@@ -48,7 +48,7 @@ This is a hobby project still under development, and I intend to create more fea
 
 Right now, the game has a very simple interface and it doesn't have any AI (yet). This means that you will make decisions for each player (even though you won't have access to the cards of the players against you). This is just a dummy implementation before starting the AI implementation.
 
-The implementation of the game rules should be finished, but it is not excluded (otherwise, maybe it's probable) that some bugs are present! Poker presents a lot of edge cases that can be spotted only with accurate tests!
+The implementation of the game rules should be finished, but it is not excluded (actually, it's probable) that some bugs are present! Poker presents a lot of edge cases that can be spotted only with accurate tests!
 
 The code probably needs to be refactored and tested (especially the part concerning the interface).
 
@@ -60,12 +60,11 @@ You are free to fork this project to make something cool with it. Examples are:
 
 Feel free to open issues with the question tag if you have any doubts.
 
-Thanks to Michael Myers for the beatiful 8-Bit poker deck, available on [itch.io](https://drawsgood.itch.io/8bit-deck-card-assets).
+Thanks to Michael Myers for the beautiful 8-Bit poker deck, available on [itch.io](https://drawsgood.itch.io/8bit-deck-card-assets).
 
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
 To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
