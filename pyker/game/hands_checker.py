@@ -308,7 +308,7 @@ class HandInfo:
         return HandComparison.Draw
 
 
-def get_winners(players: list[Player], community: Community):
+def get_winners(players: list[Player], hands: dict[Player, Hand], community: Community):
     if len(players) == 1:
         return players
 
@@ -318,7 +318,7 @@ def get_winners(players: list[Player], community: Community):
         hand_info = {}
 
         for hand_rank in HandRank:
-            poss_hand = hands_checkers_dict[hand_rank](player.hand, community)
+            poss_hand = hands_checkers_dict[hand_rank](hands[player], community)
             if poss_hand is not None:
                 hand_info = HandInfo(player, poss_hand, hand_rank)
                 hands_info.append(hand_info)

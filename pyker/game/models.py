@@ -133,12 +133,22 @@ class Community:
     def __init__(self):
         self.cards = []
 
+    def __copy__(self):
+        community = Community()
+        community.cards = self.cards.copy()
+        return community
+
 
 class Deck:
     """Deck of cards"""
 
     def __init__(self):
         self.cards = [Card(suit, rank) for rank in Rank for suit in Suit]
+
+    def __copy__(self):
+        deck = Deck()
+        deck.cards = self.cards.copy()
+        return deck
 
     def shuffle(self):
         random.shuffle(self.cards)
@@ -169,43 +179,39 @@ class Deck:
 
 class Player:
     """Player of the game"""
-
-    def __init__(self, name: string, chips: int, *, is_you=False):
+    def __init__(self, name: string, place: int):
         self.name = name
-        self.is_you = is_you
-        self.chips = chips
-        self.hand = None  # current hand
-        self.round_bet = 0  # current bet (round)
-        self.total_bet = 0  # sum of the bets in a single play
-
-    def reset_for_round(self):
-        self.round_bet = 0
-
-    def reset_for_play(self):
-        """Reset player for the start of a new play"""
-        self.hand = None
-        self.round_bet = 0
-        self.total_bet = 0
+        self.place = place
 
 
 class Players:
     """Class for managing the collection of players of the game"""
-
     def __init__(self, players: list[Player]):
         self.starting = players  # starting players (immutable)
         self.active = players.copy()  # active players (players who haven't lost)
+
+    def __copy__(self):
+        players = Players(self.starting)
+        players.active = self.active.copy()
+        return players
 
     def is_active(self, player: Player):
         return player in self.active
 
     def get_n_starting(self):
+        """Get number of starting players
+        """
         return len(self.starting)
 
     def get_n_active(self):
+        """Get number of active players
+        """
         return len(self.active)
 
-    def remove_losers(self):
-        self.active = [player for player in self.active if player.chips > 0]
+    def remove_losers(self, chips: dict[Player, int]):
+        """Remove losers from the active players
+        """
+        self.active = [player for player in self.active if chips[player] > 0]
 
     def next_to(self, player: Player):
         """Return player after the player obtained as parameter
@@ -287,11 +293,3 @@ class Players:
         if self.is_active(player):
             return player
         return self.previous_than(player)
-
-    def reset_for_round(self):
-        for player in self.active:
-            player.round_bet = 0
-
-    def reset_for_play(self):
-        for player in self.active:
-            player.reset_for_play()
