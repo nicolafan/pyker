@@ -221,7 +221,6 @@ class PlayerGUI:
             color=COLORS["BLUE"]
 
         self.__update_player_info(color)
-        
 
 
 class CardGUI:

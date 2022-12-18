@@ -119,6 +119,7 @@ class Interface:
         x, y = 449, 313
 
         for card in self.state.community.cards:
+
             card_gui = CardGUI(card, topleft=(x + offset_x, y))
             COMMUNITY_CARD_GUIS[card] = card_gui
             offset_x += card_gui.image.get_width() + 8
@@ -220,7 +221,6 @@ class Interface:
                     self.cards_discovered = True
                     for player_gui in PLAYER_GUIS.values():
                         player_gui.discover_cards()
-
                 for event in events:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_RETURN:

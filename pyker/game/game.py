@@ -2,6 +2,7 @@ import math
 
 from pyker.game.hands_checker import get_winners
 from pyker.game.models import *
+
 import random
 import copy
 
@@ -298,6 +299,7 @@ class Game:
 
             for winner in winners:
                 chips[winner] += pot_to_assign_by_player
+
 
             # decrease the pot by the portion assigned
             pot -= pot_to_assign
