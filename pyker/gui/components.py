@@ -3,7 +3,8 @@ import os
 from pathlib import Path
 
 import pygame
-from pyker.models import Action, Card, Player
+from pyker.game.models import Action, Card, Player
+from pyker.game.game import State
 from pyker.gui.constants import *
 
 
@@ -11,33 +12,27 @@ from pyker.gui.constants import *
 CARDS_SPRITES = {}
 BUTTONS_SPRITES = {}
 OTHERS_SPRITES = {}
+FONTS = {}
 
 
 class FontSize(enum.IntEnum):
-    Small = (0,)
-    Medium = (1,)
+    Small = 0
+    Medium = 1
     Large = 2
 
 
 class Marker(enum.IntEnum):
-    Dealer = (0,)
-    SmallBlind = (1,)
-    BigBlind = 2
+    Dealer = 0
+    Bet = 1
 
     def __str__(self):
-        marker_str_dict = {
-            Marker.Dealer: "dealer",
-            Marker.SmallBlind: "small_blind",
-            Marker.BigBlind: "big_blind",
-        }
+        marker_str_dict = {Marker.Dealer: "dealer", Marker.Bet: "bet"}
 
         return marker_str_dict[self]
 
 
-FONTS = {}
-
-
 def load_assets():
+    """Load the assets and put the sprites inside the dictionaries"""
     assets_dir = "assets"
     assets_cards_dir = Path(os.path.join(assets_dir, "cards"))
     assets_buttons_dir = Path(os.path.join(assets_dir, "buttons"))
@@ -109,33 +104,46 @@ class PlayerGUI:
     """Manage the entire presence of a player on the screen (cards, info, objects)
     """
 
-    def __init__(self, window, player: Player, n_players: int, player_idx: int):
-        self.window = window
+    def __init__(
+        self,
+        player: Player,
+        state: State,
+        n_players: int
+    ):
         self.player = player
-        
+        self.state = state
+        self.is_current_player = False
+        self.folded = False
+        self.is_winner = False
+
         self.card_guis = {}
+        self.marker_guis = {}
         self.player_info_gui = None
         self.is_you = False
-        
+
+        # assign correct cell to player and build cards
         self.cell = None
-        if player_idx > 0:  # if is not you
-            self.cell = self.player_cells[n_players][player_idx - 1]
+        if player.place > 0:  # if is not you
+            self.cell = self.player_cells[n_players][player.place - 1]
             self.__build_cards()
         else:
             self.is_you = True
             self.__build_your_cards()
 
-        self.update_player_info()
+        # build the player info
+        self.__update_player_info()
+
+    def discover_cards(self):
+        if not self.is_you:
+            for card in self.card_guis.values():
+                card.discover()
 
     def __build_cards(self):
-        if self.player.hand is None:
-            return
-
         x, y = self.cell_centers[self.cell]
 
-        card1, card2 = self.player.hand.cards
-        card1_gui = CardGUI(self.window, card1)
-        card2_gui = CardGUI(self.window, card2)
+        card1, card2 = self.state.hands[self.player].cards
+        card1_gui = CardGUI(card1, covered=True)
+        card2_gui = CardGUI(card2, covered=True)
         card1_gui.rect.right = x - 1
         card2_gui.rect.left = x + 1
         card1_gui.rect.centery = y
@@ -145,13 +153,11 @@ class PlayerGUI:
         self.card_guis[card2] = card2_gui
 
     def __build_your_cards(self):
-        if self.player.hand is None:
-            return
+        x, y = WIDTH // 2, 640
 
-        x, y = WIDTH / 2, 640
-        card1, card2 = self.player.hand.cards
-        card1_gui = CardGUI(self.window, card1, scale=2)
-        card2_gui = CardGUI(self.window, card2, scale=2)
+        card1, card2 = self.state.hands[self.player].cards
+        card1_gui = CardGUI(card1, scale=2)
+        card2_gui = CardGUI(card2, scale=2)
         card1_gui.rect.midright = (x, y)
         card2_gui.rect.midleft = (x, y)
 
@@ -159,41 +165,73 @@ class PlayerGUI:
         self.card_guis[card1] = card1_gui
         self.card_guis[card2] = card2_gui
 
-    def update_player_info(self):
-        if self.player.hand is None:
-            return
-        
+    def __build_player_info(self, color):
+        x, y = 0, 0
         if self.is_you:
-            return
-
-        x, y = self.cell_centers[self.cell]
+            x, y = WIDTH // 2 - 218, 720
+        else:
+            x, y = self.cell_centers[self.cell]
+            y += CELL_HEIGHT // 2
         self.player_info_gui = PlayerInfoGUI(
-            self.window,
             self.player,
-            color=COLORS["BLACK"],
+            self.state,
+            color=color,
             width=CELL_WIDTH - 20,
             height=40,
             centerx=x,
-            bottom=y + CELL_HEIGHT // 2,
+            bottom=y,
         )
 
-    def draw(self):
+    def __build_markers(self):
+        if self.state.bets[self.player] > 0:
+            self.marker_guis[Marker.Bet] = MarkerGUI(
+                Marker.Bet, self.player, self.state, self.cell
+            )
+
+        if self.player == self.state.dealer:
+            self.marker_guis[Marker.Dealer] = MarkerGUI(
+                Marker.Dealer, self.player, self.state, self.cell
+            )
+
+    def __update_player_info(self, color=COLORS["BLACK"]):
+        self.marker_guis.clear()
+
+        self.__build_player_info(color)
+        self.__build_markers()
+
+    def draw(self, window):
         for card_gui in self.card_guis.values():
-            card_gui.draw()
-        
-        if self.is_you:
+            card_gui.draw(window)
+
+        self.player_info_gui.draw(window)
+
+        for marker_gui in self.marker_guis.values():
+            marker_gui.draw(window)
+
+    def update_state(self, state: State):
+        self.state = state
+
+        if not self.player in self.state.players.active:
             return
+
+        color=COLORS["BLACK"]
+        if self.player in self.state.folded_players:
+            color=COLORS["RED"]
+        elif self.player == self.state.current_player:
+            color=COLORS["BLUE"]
+
+        self.__update_player_info(color)
         
-        self.player_info_gui.draw()
 
 
 class CardGUI:
-    def __init__(
-        self, window, card: Card, *, covered=False, topleft=(0, 0), angle=0, scale=1
-    ):
-        self.window = window
-        self.covered = covered
+    def __init__(self, card: Card, *, covered=False, topleft=(0, 0), angle=0, scale=1):
+        self.card = card
+        self.angle = angle
+        self.covered = covered  # use it in the future
         self.image = pygame.transform.rotate(CARDS_SPRITES[card.code()], angle)
+        if covered:
+            self.image = pygame.transform.rotate(CARDS_SPRITES["back_blue"], angle)
         self.image = pygame.transform.scale(
             self.image,
             (self.image.get_width() * scale, self.image.get_height() * scale),
@@ -201,19 +239,24 @@ class CardGUI:
         self.rect = self.image.get_rect()  # use the rect to move the card
         self.rect.topleft = topleft
 
-    def draw(self):
-        self.window.blit(self.image, (self.rect.x, self.rect.y))
+    def discover(self):
+        self.covered = False
+        self.image = pygame.transform.rotate(
+            CARDS_SPRITES[self.card.code()], self.angle
+        )
+
+    def draw(self, window):
+        window.blit(self.image, (self.rect.x, self.rect.y))
 
 
 class ButtonGUI:
-    def __init__(self, window, action, *, topleft=(0, 0), angle=0):
-        self.window = window
+    def __init__(self, action, *, topleft=(0, 0), angle=0):
         self.image = pygame.transform.rotate(BUTTONS_SPRITES[str(action)], angle)
         self.rect = self.image.get_rect()
         self.rect.topleft = topleft
         self.clicked = False
 
-    def draw(self):
+    def draw(self, window):
         action = False
         pos = pygame.mouse.get_pos()
 
@@ -225,14 +268,13 @@ class ButtonGUI:
         if pygame.mouse.get_pressed()[0] == 0:
             self.clicked = False
 
-        self.window.blit(self.image, (self.rect.x, self.rect.y))
+        window.blit(self.image, (self.rect.x, self.rect.y))
         return action
 
 
 class TextGUI:
     def __init__(
         self,
-        window,
         text,
         *,
         size=FontSize.Small,
@@ -240,56 +282,87 @@ class TextGUI:
         angle=0,
         color=(255, 255, 255)
     ):
-        self.window = window
+        self.size = size
+        self.color = color
+        self.angle = angle
+
         self.text = pygame.transform.rotate(
-            FONTS[size].render(text, True, color), angle
+            FONTS[self.size].render(text, True, self.color), self.angle
         )
         self.rect = self.text.get_rect()
         self.rect.topleft = topleft
 
-    def draw(self):
-        self.window.blit(self.text, self.rect)
+    def update_text(self, text):
+        self.text = pygame.transform.rotate(
+            FONTS[self.size].render(text, True, self.color), self.angle
+        )
+
+    def draw(self, window):
+        window.blit(self.text, self.rect)
 
 
 class PlayerInfoGUI:
-    def __init__(self, window, player, *, color, width, height, centerx, bottom):
-        self.window = window
+    def __init__(self, player, state, *, color, width, height, centerx, bottom):
+        self.state = state
         self.surface = pygame.Surface((width, height))  # the size of your rect
+        self.color = color
         self.surface.set_alpha(128)  # alpha level
         self.surface.fill(color)
         self.rect = self.surface.get_rect(centerx=centerx, bottom=bottom)
 
-        self.text_name = TextGUI(window, player.name, size=FontSize.Medium)
+        self.text_name = TextGUI(player.name, size=FontSize.Medium)
         self.text_name.rect.centerx = centerx
         self.text_name.rect.top = self.rect.top
 
-        self.text_chips = TextGUI(window, "$" + str(player.chips), size=FontSize.Medium)
+        self.text_chips = TextGUI("$" + str(state.chips[player]), size=FontSize.Medium)
         self.text_chips.rect.centerx = centerx
         self.text_chips.rect.bottom = self.rect.bottom
 
-    def draw(self):
-        self.window.blit(self.surface, (self.rect.x, self.rect.y))
+    def draw(self, window):
+        window.blit(self.surface, (self.rect.x, self.rect.y))
 
-        self.text_name.draw()
-        self.text_chips.draw()
+        self.text_name.draw(window)
+        self.text_chips.draw(window)
 
 
 class MarkerGUI:
-    offsets_dict = {
-        (2, 1): ("topright", (5, -5)),
-        (1, 0): ("topright", (10, 0)),
-        (0, 1): ("bottomright", (5, 5)),
-        (0, 3): ("bottomright", (0, 10)),
-        (0, 5): ("bottomleft", (-5, 5)),
-        (1, 6): ("topleft", (-10, 0)),
-        (2, 5): ("topleft", (-5, -5)),
+    cell_offsets = {
+        (2, 1): (100, -100),
+        (1, 0): (100, 0),
+        (0, 1): (100, 100),
+        (0, 3): (0, 100),
+        (0, 5): (-100, 100),
+        (1, 6): (-100, 0),
+        (2, 5): (-100, -100),
     }
 
-    def __init__(
-        self, window, marker: Marker, is_you=False, cell=None, *, center=None, angle=0
-    ):
-        self.window = window
-        self.image = pygame.transform.rotate(OTHERS_SPRITES[str(marker)], angle)
+    def __init__(self, marker, player, state, cell, *, angle=0):
+        self.marker = marker
+        self.player = player
+        self.state = state
 
-    def draw():
-        return
+        self.image = pygame.transform.rotate(OTHERS_SPRITES[str(marker)], angle)
+        self.rect = self.image.get_rect()
+        center = None
+        if cell is None:
+            center = WIDTH // 2, 480
+        else:
+            center = PlayerGUI.cell_centers[cell]
+            center = tuple(
+                map(sum, zip(center, self.cell_offsets[cell]))
+            )  # add the offset to the marker center
+        self.rect.center = center
+
+    def draw(self, window):
+        off_x, off_y = 0, 0
+        if self.marker is Marker.Dealer:
+            off_x, off_y = 10, 10
+        if self.marker is Marker.Bet:
+            txt_gui = TextGUI(
+                "$" + str(self.state.bets[self.player]), size=FontSize.Medium
+            )
+            txt_gui.rect.centerx = self.rect.x + 10
+            txt_gui.rect.centery = self.rect.y + 40
+            txt_gui.draw(window)
+
+        window.blit(self.image, (self.rect.x + off_x, self.rect.y + off_y))
