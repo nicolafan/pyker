@@ -142,7 +142,6 @@ class Interface:
                 if isinstance(action, tuple):
                     action = action[0]
                 if BUTTON_GUIS[action].draw(WIN):
-                    print("click", f"{self.i}")
                     self.i += 1
                     if action is Action.BetOrRaise:
                         self.status = GameStatus.Betting
@@ -152,6 +151,8 @@ class Interface:
                         self.build_pot_gui()
                         self.update_state()
                         self.status = GameStatus.Free
+                        if self.game.is_final(self.state):
+                                self.status = GameStatus.ShowWinner
 
         # show objects (custom code for each object)
         for gui_object in GuiObjects:
@@ -210,6 +211,8 @@ class Interface:
                             self.update_state()
                             self.bet_text = None
                             self.status = GameStatus.Free
+                            if self.game.is_final(self.state):
+                                self.status = GameStatus.ShowWinner
                         elif event.key == pygame.K_ESCAPE:
                             self.bet_text = None
                             self.status = GameStatus.Choice
@@ -226,9 +229,14 @@ class Interface:
                         if event.key == pygame.K_RETURN:
                             self.cards_discovered = False
                             self.status = GameStatus.Free
+                            self.previous_state = self.state
+                            if self.state.endgame:
+                                self.status = GameStatus.EndGame
+                            else:
+                                self.state = self.game.initial_state(self.previous_state)
             elif self.status is GameStatus.EndGame:
                 if not GuiObjects.WinnerText in OBJECT_GUIS:
-                    winner = self.game.players.active[0].name
+                    winner = [player.name for (player, chips) in self.state.chips.items() if chips > 0][0]
                     winner_text = f"The winner is {winner}"
                     winner_text_gui = TextGUI(
                         winner_text,
@@ -247,6 +255,7 @@ class Interface:
 
                 # must be a check on the state to know if it is INITIAL
                 # build the interface when starting a new play
+                
                 if self.game.is_initial(self.state) and not self.gui_built:  # start new play
                     self.reset()
                     self.build_buttons()
@@ -271,8 +280,6 @@ class Interface:
                     self.status = GameStatus.Choice
 
             self.draw_window()
-            if self.game.players.get_n_active() <= 1:
-                self.status = GameStatus.EndGame
 
         pygame.quit()
 

@@ -217,6 +217,9 @@ class PlayerGUI:
         color=COLORS["BLACK"]
         if self.player in self.state.folded_players:
             color=COLORS["RED"]
+        elif self.state.winners is not None:
+            if self.player in self.state.winners:
+                color = COLORS["YELLOW"]
         elif self.player == self.state.current_player:
             color=COLORS["BLUE"]
 

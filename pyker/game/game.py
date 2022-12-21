@@ -55,10 +55,17 @@ class State:
         self.is_final = is_final
         self.winners = winners
 
+        self.endgame = False
+
         self.n_players = len(players.active)
         self.current_player_bet = bets[current_player]
         self.highest_bet = max(self.bets.values())
-        self.chips = dict((player, self.starting_chips[player] - total_bets[player]) for player in players.active)
+        self.compute_chips()
+
+        players_with_chips = [player for (player, chips) in self.chips.items() if chips > 0]
+        if len(players_with_chips) < 2:
+            self.endgame = True
+
 
     def __copy__(self):
         state = State(
@@ -82,6 +89,9 @@ class State:
             self.winners
         )
         return state
+
+    def compute_chips(self):
+        self.chips = dict((player, self.starting_chips[player] - self.total_bets[player]) for player in self.players.active)
 
     def get_pot(self):
         return sum(self.total_bets.values())
@@ -430,8 +440,12 @@ class Game:
             next_round += 1
 
             if next_round == Round.End:
-                final_state = self.end(state)
-                return self.initial_state(final_state)
+                state_copy = copy.copy(state)
+                state_copy.total_bets = total_bets
+                state_copy.folded_players = folded_players
+                state_copy.compute_chips()
+                final_state = self.end(state_copy)
+                return final_state
 
             players_with_chips = [player for player in players.active if state.chips[player] > 0 and not player in folded_players]
 
@@ -440,8 +454,12 @@ class Game:
                     next_round += 1
                 while len(community.cards) < 5:
                     deck.deal_community_cards(community)
-                final_state = self.end(state)
-                return self.initial_state(final_state) 
+                state_copy = copy.copy(state)
+                state_copy.total_bets = total_bets
+                state_copy.folded_players = folded_players
+                state_copy.compute_chips()
+                final_state = self.end(state_copy)
+                return final_state 
 
             bets = dict((player, 0) for player in players.active)
             deck.deal_community_cards(community)
