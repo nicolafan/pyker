@@ -457,6 +457,7 @@ class Game:
                 state_copy = copy.copy(state)
                 state_copy.total_bets = total_bets
                 state_copy.folded_players = folded_players
+                state_copy.community = community
                 state_copy.compute_chips()
                 final_state = self.end(state_copy)
                 return final_state 

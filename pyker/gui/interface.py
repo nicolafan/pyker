@@ -1,10 +1,13 @@
+import threading
 import pygame
 import enum
+from queue import Queue
 
 from pyker.game.game import Game
 from pyker.game.models import *
 from pyker.gui.components import *
 from pyker.gui.constants import *
+from pyker.ai.dummy import Dummy
 
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pyker - Poker Texas Hold'em")
@@ -29,8 +32,9 @@ class GameStatus(enum.IntEnum):
     Free = 0
     Choice = 1
     Betting = 2
-    ShowWinner = 3
-    EndGame = 4
+    ArtificialIntelligence = 3
+    ShowWinner = 4
+    EndGame = 5
 
 
 class Interface:
@@ -47,6 +51,8 @@ class Interface:
             players.append(Player(name, i))
 
         self.game = Game(players)
+        self.you = players[0]
+        self.queue = Queue()
 
         self.status = GameStatus.Free  # waiting for the action
         self.available_actions = None
@@ -220,6 +226,8 @@ class Interface:
                             self.bet_text += event.unicode
                             OBJECT_GUIS[GuiObjects.BetText].update_text(self.bet_text)
             elif self.status is GameStatus.ShowWinner:
+                while len(COMMUNITY_CARD_GUIS) < 5:
+                    self.build_new_community_cards()
                 if not self.cards_discovered:
                     self.cards_discovered = True
                     for player_gui in PLAYER_GUIS.values():
@@ -250,12 +258,24 @@ class Interface:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_RETURN:
                             run = False
-            else:
+            elif self.status is GameStatus.ArtificialIntelligence:
+                if self.queue.qsize() > 0:
+                    action = self.queue.get()
+                    self.previous_state = self.state
+                    if isinstance(action, tuple):
+                        self.state = self.game.result(self.state, action[0], amount=action[1], range=action[2])
+                    else:
+                        self.state = self.game.result(self.state, action)
+                    self.build_pot_gui()
+                    self.update_state()
+                    self.status = GameStatus.Free
+                    if self.game.is_final(self.state):
+                        self.status = GameStatus.ShowWinner
+            elif self.status is GameStatus.Free:
                 # self.update_players_info()
 
                 # must be a check on the state to know if it is INITIAL
-                # build the interface when starting a new play
-                
+                # build the interface when starting a new play                
                 if self.game.is_initial(self.state) and not self.gui_built:  # start new play
                     self.reset()
                     self.build_buttons()
@@ -275,9 +295,15 @@ class Interface:
                         self.reset()
                     self.build_new_community_cards()
 
-                self.available_actions = self.game.actions(self.state)  # action!
-                if self.available_actions is not None:
-                    self.status = GameStatus.Choice
+                if self.state.current_player == self.you:
+                    self.available_actions = self.game.actions(self.state)  # action!
+                    if self.available_actions is not None:
+                        self.status = GameStatus.Choice
+                else:
+                    dummy = Dummy(self.game, self.state, self.queue)
+                    thread = threading.Thread(target=dummy.run)
+                    thread.start()
+                    self.status = GameStatus.ArtificialIntelligence
 
             self.draw_window()
 
